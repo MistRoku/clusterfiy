@@ -1,3 +1,27 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@import 'daisyui/dist/full.css';
+
+/* Custom Dark Mode Logo Filter (if you use the CSS filter approach) */
+.dark .logo-img {
+    filter: brightness(0) invert(1);
+}
+
+/* Optional: Custom scrollbar or global overrides */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

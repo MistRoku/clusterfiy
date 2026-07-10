@@ -14,8 +14,26 @@ class AuthenticatedSessionController extends Controller
     /**
      * Display the login view.
      */
-    public function create(): View
+    public function create()
     {
+        // If user is already logged in, redirect them properly
+        if (Auth::check()) {
+            $user = Auth::user();
+
+            // Super Admin → company management
+            if ($user->isSuperAdmin()) {
+                return redirect()->route('companies.index');
+            }
+
+            // Regular user with company → tenant dashboard
+            if ($user->company) {
+                return redirect()->route('tenant.dashboard', ['subdomain' => $user->company->subdomain]);
+            }
+
+            // Fallback: no company assigned
+            abort(403, 'You are not assigned to any company.');
+        }
+
         return view('auth.login');
     }
 
@@ -28,7 +46,18 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        $user = Auth::user();
+
+        if ($user->isSuperAdmin()) {
+            return redirect()->intended(route('companies.index'));
+        }
+
+        if ($user->company) {
+            return redirect()->intended(route('tenant.dashboard', ['subdomain' => $user->company->subdomain]));
+        }
+
+        // Fallback
+        return redirect()->intended('/');
     }
 
     /**

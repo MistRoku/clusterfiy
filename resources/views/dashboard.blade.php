@@ -3,32 +3,140 @@
 @section('title', 'Dashboard')
 
 @section('content')
-    <div class="container mx-auto">
-        <h1 class="text-2xl font-bold mb-4">Dashboard</h1>
-        @if (isset($company))
-            <p class="mb-4">Welcome to <strong>{{ $company->name }}</strong></p>
+<div class="space-y-6">
+    <!-- Welcome -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <div>
+            <h1 class="text-2xl md:text-3xl font-bold">Dashboard</h1>
+            <p class="text-sm opacity-60">
+                Welcome back, {{ auth()->user()->name }}!
+                @if($isGlobalView ?? false)
+                    <span class="badge badge-info ml-2">Global View</span>
+                @endif
+            </p>
+        </div>
+        @if(isset($company) && $company)
+            <span class="badge badge-primary badge-lg">{{ $company->name }}</span>
         @endif
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="bg-white dark:bg-gray-800 p-5 rounded shadow">
-                <h2 class="text-lg font-semibold mb-3">My Active Tasks</h2>
-                @forelse($myTasks as $task)
-                    <div class="border-b dark:border-gray-700 py-2 flex justify-between">
-                        <a href="{{ route('tasks.show', $task) }}"
-                            class="text-indigo-600 hover:underline">{{ $task->title }}</a>
-                        <span class="text-sm text-gray-500">{{ ucfirst($task->status) }}</span>
-                    </div>
-                @empty
-                    <p class="text-gray-500">No active tasks.</p>
-                @endforelse
-            </div>
-            <div class="bg-white dark:bg-gray-800 p-5 rounded shadow">
-                <h2 class="text-lg font-semibold mb-3">Recent Company Tasks</h2>
-                @forelse($recentTasks as $task)
-                    <div class="border-b dark:border-gray-700 py-2">{{ $task->title }}</div>
-                @empty
-                    <p class="text-gray-500">No recent tasks.</p>
-                @endforelse
-            </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="stat bg-base-100 rounded-box shadow p-4">
+            <div class="stat-figure text-primary"><i class="fas fa-tasks text-3xl"></i></div>
+            <div class="stat-title">Total Tasks</div>
+            <div class="stat-value text-2xl md:text-3xl">{{ $totalTasks ?? 0 }}</div>
+            <div class="stat-desc">{{ $completedTasks ?? 0 }} completed</div>
+        </div>
+        <div class="stat bg-base-100 rounded-box shadow p-4">
+            <div class="stat-figure text-secondary"><i class="fas fa-spinner text-3xl"></i></div>
+            <div class="stat-title">In Progress</div>
+            <div class="stat-value text-2xl md:text-3xl">{{ $inProgressTasks ?? 0 }}</div>
+            <div class="stat-desc text-error">{{ $blockedTasks ?? 0 }} blocked</div>
+        </div>
+        <div class="stat bg-base-100 rounded-box shadow p-4">
+            <div class="stat-figure text-accent"><i class="fas fa-users text-3xl"></i></div>
+            <div class="stat-title">Team Members</div>
+            <div class="stat-value text-2xl md:text-3xl">{{ $teamMembers ?? 0 }}</div>
+            <div class="stat-desc">Active users</div>
+        </div>
+        <div class="stat bg-base-100 rounded-box shadow p-4">
+            <div class="stat-figure text-warning"><i class="fas fa-clock text-3xl"></i></div>
+            <div class="stat-title">Hours Logged</div>
+            <div class="stat-value text-2xl md:text-3xl">{{ number_format($totalHours ?? 0, 1) }}</div>
+            <div class="stat-desc">Total tracked time</div>
         </div>
     </div>
+
+    <!-- Chart + My Tasks -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Chart -->
+        <div class="bg-base-100 p-4 rounded-box shadow">
+            <h3 class="text-lg font-semibold mb-4">Tasks by Status</h3>
+            @if($statusLabels->count() > 0)
+                <canvas id="statusChart" height="200"></canvas>
+            @else
+                <p class="text-center opacity-50 py-8">No task data available</p>
+            @endif
+        </div>
+
+        <!-- My Tasks -->
+        <div class="bg-base-100 p-4 rounded-box shadow">
+            <h3 class="text-lg font-semibold mb-4">My Active Tasks</h3>
+            @forelse($myTasks ?? [] as $task)
+                <div class="flex justify-between items-center py-2 border-b border-base-200 last:border-0">
+                    <a href="{{ route('tasks.show', $task) }}" class="hover:link-primary">
+                        {{ $task->title }}
+                    </a>
+                    <span class="badge badge-{{ $task->status === 'in_progress' ? 'warning' : ($task->status === 'done' ? 'success' : 'neutral') }}">
+                        {{ ucfirst(str_replace('_', ' ', $task->status)) }}
+                    </span>
+                </div>
+            @empty
+                <p class="text-center opacity-50 py-8">No active tasks assigned to you</p>
+            @endforelse
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="bg-base-100 p-4 rounded-box shadow">
+        <h3 class="text-lg font-semibold mb-4">Recent Activity</h3>
+        @if($recentActivity->count() > 0)
+            <div class="space-y-2">
+                @foreach($recentActivity as $log)
+                    <div class="flex items-center gap-3 text-sm py-1 border-b border-base-200 last:border-0">
+                        <span class="badge badge-ghost">{{ $log->event }}</span>
+                        <span>{{ $log->loggable_type === 'App\Models\Task' ? 'Task' : 'Item' }}</span>
+                        <span class="opacity-50">•</span>
+                        <span class="opacity-60">{{ $log->created_at->diffForHumans() }}</span>
+                        @if($log->user)
+                            <span class="opacity-50">by {{ $log->user->name }}</span>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        @else
+            <p class="text-center opacity-50 py-4">No recent activity</p>
+        @endif
+    </div>
+</div>
 @endsection
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        @if($statusLabels->count() > 0)
+        const ctx = document.getElementById('statusChart').getContext('2d');
+        const labels = @json($statusLabels);
+        const data = @json($statusCounts);
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Tasks',
+                    data: data,
+                    backgroundColor: ['#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#10b981', '#6b7280'],
+                    borderWidth: 2,
+                    borderColor: '#1e293b'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    }
+                }
+            }
+        });
+        @endif
+    });
+</script>
+@endpush

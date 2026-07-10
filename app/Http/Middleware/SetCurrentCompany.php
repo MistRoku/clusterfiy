@@ -17,13 +17,19 @@ class SetCurrentCompany
      */
     public function handle(Request $request, Closure $next): Response
     {
-                $subdomain = $request->route('subdomain') ?? $request->getHost();
+        $subdomain = $request->route('subdomain') ?? $request->getHost();
 
+        // Skip if it's the main domain or www
         if (in_array($subdomain, [config('app.domain', 'clusterfiy.test'), 'www'])) {
+            View::share('currentCompany', null);
+            session()->forget('current_company_id');
             return $next($request);
         }
 
-        $company = Company::where('subdomain', $subdomain)->where('is_active', true)->first();
+        $company = Company::query()
+            ->where('subdomain', $subdomain)
+            ->where('is_active', true)
+            ->first();
 
         if (!$company) {
             abort(404, 'Company not found.');
