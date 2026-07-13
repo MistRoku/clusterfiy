@@ -11,6 +11,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\ReportController;
 
+
 require __DIR__ . '/auth.php';
 
 // Override registration routes to disable them
@@ -105,6 +106,75 @@ Route::domain('{subdomain}.clusterfiy.test')->group(function () {
 
 Route::middleware(['auth', 'is_super_admin'])->prefix('admin')->group(function () {
     Route::resource('companies', CompanyController::class)->except(['show']);
+});
+
+// Public routes with strict rate limiting
+Route::middleware(['throttle:public'])->group(function () {
+    Route::get('/', function () {
+        return Auth::check() ? redirect()->route('dashboard') : view('welcome');
+    })->name('home');
+});
+
+// Authenticated routes
+Route::middleware(['auth', 'verified', 'throttle:authenticated'])->group(function () {
+
+    // Dashboard
+    Route::get('/dashboard', [DashboardController::class, 'index'])
+        ->name('dashboard');
+
+    // Company Switching
+    Route::post('/companies/switch/{company}', [CompanySwitchController::class, 'switch'])
+        ->name('companies.switch')
+        ->middleware('can:switch,company');
+
+    // Profile
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Tasks (scoped to current company)
+    Route::resource('tasks', TaskController::class);
+    Route::patch('/tasks/{task}/status', [TaskController::class, 'updateStatus'])
+        ->name('tasks.status.update')
+        ->middleware('can:update,task');
+    Route::post('/tasks/{task}/comments', [TaskController::class, 'storeComment'])
+        ->name('tasks.comments.store');
+    Route::post('/tasks/{task}/attachments', [TaskController::class, 'storeAttachment'])
+        ->name('tasks.attachments.store');
+    Route::post('/tasks/{task}/time-entries', [TaskController::class, 'storeTimeEntry'])
+        ->name('tasks.time-entries.store');
+    Route::get('/tasks/{task}/export', [TaskController::class, 'export'])
+        ->name('tasks.export')
+        ->middleware('can:view,task');
+
+    // Reports
+    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
+    Route::get('/reports/data', [ReportController::class, 'data'])->name('reports.data');
+
+    // Settings
+    Route::get('/settings', function () {
+        return view('settings.index');
+    })->name('settings.index');
+
+    // Departments (Admin+)
+    Route::middleware(['role_or_permission:admin|manage departments'])->group(function () {
+        Route::resource('departments', DepartmentController::class)->except(['show']);
+    });
+
+    // User Management (Admin+)
+    Route::middleware(['role_or_permission:admin|manage users'])->group(function () {
+        Route::resource('users', UserController::class)->except(['show']);
+        Route::patch('/users/{user}/toggle-status', [UserController::class, 'toggleStatus'])
+            ->name('users.toggle-status');
+    });
+});
+
+// Super Admin Routes
+Route::middleware(['auth', 'verified', 'superadmin', 'throttle:authenticated'])->group(function () {
+    Route::resource('companies', CompanyController::class);
+    Route::patch('/companies/{company}/toggle-status', [CompanyController::class, 'toggleStatus'])
+        ->name('companies.toggle-status');
 });
 
 Route::post('/switch-company', [CompanySwitchController::class, 'switch'])->name('switch-company')->middleware('auth');

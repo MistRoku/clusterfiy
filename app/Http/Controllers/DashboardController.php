@@ -8,15 +8,23 @@ use App\Models\Company;
 use App\Models\TimeEntry;
 use App\Models\ActivityLog;
 use Illuminate\Support\Facades\Auth;
+use App\Services\DashboardService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardController extends Controller
 {
+
+    public function __construct(
+        private DashboardService $dashboardService
+    ) {}
     public function index()
     {
         $user = Auth::user();
         $company = null;
         $companyId = null;
         $isGlobalView = false;
+        $company = $request->attributes->get('current_company');
 
         // ─── Determine which company to show ───
         if ($user->isSuperAdmin()) {

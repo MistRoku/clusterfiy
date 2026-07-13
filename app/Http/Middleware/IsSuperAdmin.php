@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\Auth;
+use App\Models\ActivityLog;
 
 class IsSuperAdmin
 {
@@ -16,28 +17,27 @@ class IsSuperAdmin
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!Auth::check()) {
-            abort(403, 'Super Admin only.');
-        }
-
         $user = Auth::user();
 
-        // Support models that implement isSuperAdmin(), or fallback to common attributes
-        $isSuper = false;
-        if (method_exists($user, 'isSuperAdmin')) {
-            // Use method_exists to satisfy static analysis tools that may not
-            // recognize dynamic model methods.
-            $isSuper = (bool) $user->isSuperAdmin();
-        } elseif (isset($user->is_super_admin)) {
-            $isSuper = (bool) $user->is_super_admin;
-        } elseif (isset($user->role)) {
-            $role = strtolower($user->role);
-            $isSuper = in_array($role, ['superadmin', 'super_admin']);
+        if (Auth::user()?->isSuperAdmin()) {
+            ActivityLog::create([
+                'user_id' => Auth::id(),
+                'event' => 'unauthorized_access',
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+            abort($request->wantsJson() ? 403 : 403, 'Super admin only.');
         }
 
-        if (! $isSuper) {
-            abort(403, 'Super Admin only.');
-        }
+        // Log super admin access for audit
+        \Illuminate\Support\Facades\Log::info('Super admin access', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'route' => $request->route()?->getName(),
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
         return $next($request);
     }
 }
