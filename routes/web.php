@@ -13,6 +13,15 @@ use App\Http\Controllers\ReportController;
 
 require __DIR__ . '/auth.php';
 
+// Override registration routes to disable them
+Route::get('/register', function () {
+    abort(404);
+})->name('register');
+
+Route::post('/register', function () {
+    abort(404);
+});
+
 Route::middleware(['auth'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

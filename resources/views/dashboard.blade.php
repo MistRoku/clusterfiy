@@ -10,8 +10,14 @@
             <h1 class="text-2xl md:text-3xl font-bold">Dashboard</h1>
             <p class="text-sm opacity-60">
                 Welcome back, {{ auth()->user()->name }}!
-                @if($isGlobalView ?? false)
+                @if($role === 'super_admin' && ($isGlobalView ?? false))
                     <span class="badge badge-info ml-2">Global View</span>
+                @endif
+                @if($role === 'company_admin')
+                    <span class="badge badge-primary ml-2">Admin</span>
+                @endif
+                @if($role === 'manager')
+                    <span class="badge badge-secondary ml-2">Manager</span>
                 @endif
             </p>
         </div>
@@ -54,7 +60,7 @@
         <div class="bg-base-100 p-4 rounded-box shadow">
             <h3 class="text-lg font-semibold mb-4">Tasks by Status</h3>
             @if($statusLabels->count() > 0)
-                <canvas id="statusChart" height="200"></canvas>
+                <canvas id="statusChart" class="max-w-full" height="200"></canvas>
             @else
                 <p class="text-center opacity-50 py-8">No task data available</p>
             @endif
@@ -63,26 +69,50 @@
         <!-- My Tasks -->
         <div class="bg-base-100 p-4 rounded-box shadow">
             <h3 class="text-lg font-semibold mb-4">My Active Tasks</h3>
-            @forelse($myTasks ?? [] as $task)
+            @if($myTasks->count() > 0)
+                <div class="space-y-2">
+                    @foreach($myTasks as $task)
+                        <div class="flex justify-between items-center py-2 border-b border-base-200 last:border-0">
+                            <a href="{{ route('tasks.show', $task) }}" class="hover:link-primary">
+                                {{ $task->title }}
+                            </a>
+                            <span class="badge badge-{{ $task->status === 'in_progress' ? 'warning' : ($task->status === 'done' ? 'success' : 'neutral') }}">
+                                {{ ucfirst(str_replace('_', ' ', $task->status)) }}
+                            </span>
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <p class="text-center opacity-50 py-8">No active tasks assigned to you</p>
+            @endif
+        </div>
+    </div>
+
+    <!-- Team Tasks (Managers & Admins only) -->
+    @if(in_array($role, ['manager', 'company_admin']) && isset($teamTasks) && $teamTasks->count() > 0)
+    <div class="bg-base-100 p-4 rounded-box shadow">
+        <h3 class="text-lg font-semibold mb-4">Team Tasks</h3>
+        <div class="space-y-2">
+            @foreach($teamTasks as $task)
                 <div class="flex justify-between items-center py-2 border-b border-base-200 last:border-0">
                     <a href="{{ route('tasks.show', $task) }}" class="hover:link-primary">
                         {{ $task->title }}
+                        <span class="text-xs opacity-50 ml-2">({{ $task->assignee->name ?? 'Unassigned' }})</span>
                     </a>
                     <span class="badge badge-{{ $task->status === 'in_progress' ? 'warning' : ($task->status === 'done' ? 'success' : 'neutral') }}">
                         {{ ucfirst(str_replace('_', ' ', $task->status)) }}
                     </span>
                 </div>
-            @empty
-                <p class="text-center opacity-50 py-8">No active tasks assigned to you</p>
-            @endforelse
+            @endforeach
         </div>
     </div>
+    @endif
 
     <!-- Recent Activity -->
     <div class="bg-base-100 p-4 rounded-box shadow">
         <h3 class="text-lg font-semibold mb-4">Recent Activity</h3>
         @if($recentActivity->count() > 0)
-            <div class="space-y-2">
+            <div class="space-y-2 max-h-64 overflow-y-auto">
                 @foreach($recentActivity as $log)
                     <div class="flex items-center gap-3 text-sm py-1 border-b border-base-200 last:border-0">
                         <span class="badge badge-ghost">{{ $log->event }}</span>

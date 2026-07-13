@@ -3,15 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Company;
 use Spatie\Permission\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class UserController extends Controller
 {
+    use AuthorizesRequests;
+
         public function index()
     {
+        $this->authorize('viewAny', User::class);
         $companyId = session('current_company_id');
         $users = User::where('company_id', $companyId)->paginate(10);
         $roles = Role::where('name', '!=', 'super_admin')->get();
@@ -20,7 +25,7 @@ class UserController extends Controller
 
     public function assignRole(Request $request, User $user)
     {
-        Gate::authorize('manage users', $user);
+        $this->authorize('manage users', $user);
         $role = $request->input('role');
         $user->syncRoles([$role]);
         return back()->with('success', 'Role updated.');
@@ -28,8 +33,8 @@ class UserController extends Controller
 
     public function destroy(User $user)
     {
-        Gate::authorize('manage users', $user);
-        $user->delete();
+        $this->authorize('manage users', $user);
+        User::destroy($user->id);
         return back()->with('success', 'User removed.');
     }
 }

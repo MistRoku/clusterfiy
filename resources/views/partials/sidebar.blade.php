@@ -10,9 +10,10 @@
         <li>
             @php
                 // Determine the correct dashboard link
-                $dashboardRoute = isset($currentCompany) && $currentCompany && $currentCompany->subdomain
-                    ? route('tenant.dashboard', ['subdomain' => $currentCompany->subdomain])
-                    : route('dashboard');
+                $dashboardRoute =
+                    isset($currentCompany) && $currentCompany && $currentCompany->subdomain
+                        ? route('tenant.dashboard', ['subdomain' => $currentCompany->subdomain])
+                        : route('dashboard');
             @endphp
             <a href="{{ $dashboardRoute }}" class="flex items-center gap-3">
                 <i class="fas fa-home w-5"></i> Dashboard
@@ -20,7 +21,7 @@
         </li>
 
         {{-- Only show tenant-specific links if a company is selected --}}
-        @if(isset($currentCompany) && $currentCompany)
+        @if (isset($currentCompany) && $currentCompany)
             <li>
                 <a href="{{ route('tasks.index') }}" class="flex items-center gap-3">
                     <i class="fas fa-tasks w-5"></i> Tasks
@@ -48,43 +49,45 @@
             </li>
         @endif
 
-        @if(auth()->user()->isSuperAdmin())
-        <li class="menu-title mt-4 text-xs uppercase opacity-50">Admin</li>
-        <li>
-            <a href="{{ route('companies.index') }}" class="flex items-center gap-3">
-                <i class="fas fa-globe w-5"></i> All Companies
-            </a>
-        </li>
+        @if (auth()->user()->isSuperAdmin())
+            <li class="menu-title mt-4 text-xs uppercase opacity-50">Admin</li>
+            <li>
+                <a href="{{ route('companies.index') }}" class="flex items-center gap-3">
+                    <i class="fas fa-globe w-5"></i> All Companies
+                </a>
+            </li>
         @endif
     </ul>
 
     <!-- Company Switcher (Super Admin) -->
-    @if(auth()->user()->isSuperAdmin())
-    <div class="mt-6 pt-4 border-t border-base-300">
-        <form method="POST" action="{{ route('switch-company') }}" class="flex flex-col gap-2">
-            @csrf
-            <select name="company_id" class="select select-bordered select-sm w-full" onchange="this.form.submit()">
-                <option value="">🌍 Global View</option>
-                @foreach(\App\Models\Company::all() as $comp)
-                <option value="{{ $comp->id }}" {{ session('current_company_id') == $comp->id ? 'selected' : '' }}>
-                    {{ $comp->name }}
-                </option>
-                @endforeach
-            </select>
-        </form>
-        @if(session('current_company_id'))
-        <form method="POST" action="{{ route('reset-company') }}" class="mt-1">
-            @csrf
-            <button type="submit" class="btn btn-ghost btn-xs w-full">Reset to Global</button>
-        </form>
-        @endif
-    </div>
+    @if (auth()->user()->isSuperAdmin())
+        <div class="mt-6 pt-4 border-t border-base-300">
+            <form method="POST" action="{{ route('switch-company') }}" class="flex flex-col gap-2">
+                @csrf
+                <select name="company_id" class="select select-bordered select-sm w-full" onchange="this.form.submit()">
+                    <option value="">🌍 Global View</option>
+                    @foreach (\App\Models\Company::all() as $comp)
+                        <option value="{{ $comp->id }}"
+                            {{ session('current_company_id') == $comp->id ? 'selected' : '' }}>
+                            {{ $comp->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </form>
+            @if (session('current_company_id'))
+                <form method="POST" action="{{ route('reset-company') }}" class="mt-1">
+                    @csrf
+                    <button type="submit" class="btn btn-ghost btn-xs w-full">Reset to Global</button>
+                </form>
+            @endif
+        </div>
     @endif
 
     <!-- User Menu (Bottom) -->
     <div class="mt-auto pt-4 border-t border-base-300">
         <div class="dropdown dropdown-top w-full">
-            <div tabindex="0" class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200 cursor-pointer transition">
+            <div tabindex="0"
+                class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200 cursor-pointer transition">
                 <div class="avatar placeholder">
                     <div class="bg-primary text-primary-content rounded-full w-10">
                         <span class="text-sm font-bold">{{ substr(auth()->user()->name, 0, 1) }}</span>
@@ -98,7 +101,8 @@
             </div>
             <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-full">
                 <li><a href="{{ route('profile.edit') }}"><i class="fas fa-user w-4"></i> Profile</a></li>
-                <li><a href="#" onclick="document.getElementById('logout-form').submit();"><i class="fas fa-sign-out-alt w-4"></i> Logout</a></li>
+                <li><a href="#" onclick="document.getElementById('logout-form').submit();"><i
+                            class="fas fa-sign-out-alt w-4"></i> Logout</a></li>
                 <form id="logout-form" action="{{ route('logout') }}" method="POST" class="hidden">@csrf</form>
             </ul>
         </div>

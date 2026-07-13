@@ -28,7 +28,7 @@
     <div class="flex min-h-screen">
         @include('partials.sidebar')
         <div class="flex-1 flex flex-col">
-            @include('partials.navbar') <!-- keep simple top bar with dark toggle -->
+            @include('layouts.navigation')
             <main class="flex-1 p-6">
                 @if (session('success'))
                     <div class="alert alert-success mb-4">{{ session('success') }}</div>
