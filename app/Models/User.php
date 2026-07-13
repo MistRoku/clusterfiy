@@ -11,12 +11,14 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Scopes\TenantScope;
 
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
-    use HasApiTokens, Notifiable, HasRoles, HasFactory;
+    use HasApiTokens, Notifiable, HasRoles, SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -32,15 +34,25 @@ class User extends Authenticatable
         'last_login_device',
         'failed_login_attempts',
         'locked_until',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
-    protected $hidden = ['password', 'remember_token'];
+    protected $hidden = ['password', 'remember_token', 'two_factor_secret'];
+
     protected $casts = [
         'email_verified_at' => 'datetime',
         'is_super_admin' => 'boolean',
         'is_master_admin' => 'boolean',
         'locked_until' => 'datetime',
+        'last_login_at' => 'datetime',
+        'two_factor_secret' => 'encrypted',
     ];
+
+    protected static function booted()
+    {
+        static::addGlobalScope(new TenantScope);
+    }
 
     public function company()
     {
@@ -105,8 +117,18 @@ class User extends Authenticatable
     public function getCurrentCompanyAttribute()
     {
         if ($this->isSuperAdmin() && session('current_company_id')) {
-            return Company::find(session('current_company_id'));
+            return Company::whereKey(session('current_company_id'))->first();
         }
         return $this->company;
+    }
+
+    public function defaultCompany()
+    {
+        return $this->company ?: $this->companies()->first();
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
     }
 }

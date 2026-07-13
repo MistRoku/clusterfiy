@@ -3,10 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Scopes\TenantScope;
 
 class TimeEntry extends Model
 {
-        protected $fillable = [
+    protected $fillable = [
         'task_id',
         'user_id',
         'started_at',
@@ -16,14 +17,18 @@ class TimeEntry extends Model
     ];
 
     protected $casts = [
-        'started_at'    => 'datetime',
-        'ended_at'      => 'datetime',
+        'started_at' => 'datetime',
+        'ended_at' => 'datetime',
         'duration_hours' => 'decimal:2',
     ];
 
     public function task()
     {
         return $this->belongsTo(Task::class);
+    }
+    protected static function booted()
+    {
+        static::addGlobalScope(new TenantScope);
     }
 
     public function user()

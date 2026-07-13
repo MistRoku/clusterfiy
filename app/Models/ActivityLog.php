@@ -28,6 +28,11 @@ class ActivityLog extends Model
         return $this->morphTo();
     }
 
+    protected static function booted()
+    {
+        static::addGlobalScope(new \App\Models\Scopes\TenantScope);
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -37,7 +42,7 @@ class ActivityLog extends Model
     public function scopeForModel($query, Model $model)
     {
         return $query->where('loggable_type', get_class($model))
-                     ->where('loggable_id', $model->id);
+            ->where('loggable_id', $model->id);
     }
 
     public function scopeForUser($query, $userId)

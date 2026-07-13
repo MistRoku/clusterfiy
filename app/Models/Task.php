@@ -5,10 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Scopes\TenantScope;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class Task extends Model
 {
     use SoftDeletes;
+
+    const STATUSES = ['todo', 'in_progress', 'in_review', 'blocked', 'done'];
+    const PRIORITIES = ['low', 'medium', 'high', 'urgent'];
 
     protected $fillable = [
         'company_id',
@@ -36,6 +41,22 @@ class Task extends Model
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
     ];
+
+    protected static function booted()
+    {
+        static::addGlobalScope(new TenantScope);
+
+        static::updated(function ($task) {
+            if ($task->isDirty('status')) {
+                TaskStatusChange::create([
+                    'task_id' => $task->id,
+                    'from_status' => $task->getOriginal('status'),
+                    'to_status' => $task->status,
+                    'changed_by' => auth()->id(),
+                ]);
+            }
+        });
+    }
 
     public function company()
     {
@@ -84,17 +105,36 @@ class Task extends Model
         return $this->hasMany(TimeEntry::class);
     }
 
-    protected static function booted()
+    public function isOverdue(): bool
     {
-        static::updated(function ($task) {
-            if ($task->isDirty('status')) {
-                TaskStatusChange::create([
-                    'task_id' => $task->id,
-                    'from_status' => $task->getOriginal('status'),
-                    'to_status' => $task->status,
-                    'changed_by' => Auth::id(),
-                ]);
-            }
-        });
+        return $this->due_date && $this->due_date->isPast() && $this->status !== 'done';
+    }
+
+    public function totalLoggedHours(): float
+    {
+        return $this->timeEntries()->sum('duration_hours') ?? 0;
+    }
+
+    public function getStatusColorAttribute(): string
+    {
+        return match ($this->status) {
+            'todo' => 'neutral',
+            'in_progress' => 'primary',
+            'in_review' => 'secondary',
+            'blocked' => 'error',
+            'done' => 'success',
+            default => 'neutral',
+        };
+    }
+
+    public function getPriorityColorAttribute(): string
+    {
+        return match ($this->priority) {
+            'urgent' => 'error',
+            'high' => 'warning',
+            'medium' => 'info',
+            'low' => 'ghost',
+            default => 'ghost',
+        };
     }
 }

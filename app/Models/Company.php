@@ -21,11 +21,13 @@ class Company extends Model
         'is_active',
         'settings',
         'created_by',
+        'trial_ends_at',
     ];
 
     protected $casts = [
         'settings' => 'array',
         'is_active' => 'boolean',
+        'trial_ends_at' => 'datetime',
     ];
 
     public function users()
@@ -53,34 +55,8 @@ class Company extends Model
         return $query->where('is_active', true);
     }
 
-    public function store(Request $request)
-{
-    $validated = $request->validate([
-        'name' => 'required|string|max:255',
-        'subdomain' => 'required|string|max:255|unique:companies,subdomain',
-        'domain' => 'nullable|string|max:255|unique:companies,domain',
-        'description' => 'nullable|string',
-        'logo' => 'nullable|image|max:2048',
-        'timezone' => 'required|string|max:255',
-        'is_active' => 'boolean',
-        'settings' => 'nullable|array',
-    ]);
-    $validated['created_by'] = Auth::id();
-    $company = Company::create($validated);
-
-    // Create a company admin user
-    $adminEmail = 'admin@' . $company->subdomain . '.com';
-    $admin = User::create([
-        'name' => $company->name . ' Admin',
-        'email' => $adminEmail,
-        'password' => bcrypt('password'),
-        'company_id' => $company->id,
-        'is_master_admin' => true,
-    ]);
-    $admin->assignRole('company_admin');
-
-    // Optionally, assign the current user as a member too? Not needed.
-
-    return redirect()->route('companies.index')->with('success', 'Company created. Company admin: ' . $adminEmail . ' / password');
-}
+    public function subscriptionActive(): bool
+    {
+        return $this->trial_ends_at && $this->trial_ends_at->isFuture();
+    }
 }
