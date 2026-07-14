@@ -28,7 +28,7 @@ class UserPolicy
      */
     public function create(User $user): bool
     {
-        return false;
+        return $user->hasRole('company_admin') || $user->isSuperAdmin();
     }
 
     /**
@@ -36,7 +36,9 @@ class UserPolicy
      */
     public function update(User $user, User $model): bool
     {
-        return false;
+        if ($user->id === $model->id)
+            return true;
+        return $user->company_id === $model->company_id && $user->hasRole('company_admin');
     }
 
     /**
@@ -44,7 +46,9 @@ class UserPolicy
      */
     public function delete(User $user, User $model): bool
     {
-        return false;
+        if ($user->id === $model->id)
+            return false;
+        return $user->company_id === $model->company_id && $user->hasRole('company_admin');
     }
 
     /**

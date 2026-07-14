@@ -37,8 +37,13 @@ class TaskPolicy
 
     public function delete(User $user, Task $task)
     {
-        if ($user->hasPermissionTo('delete tasks') && $user->company_id === $task->company_id)
+        if ($user->id === $task->created_by)
             return true;
-        return $user->isSuperAdmin();
+        return $user->company_id === $task->company_id && $user->hasRole('company_admin');
+    }
+
+    public function approve(User $user, Task $task): bool
+    {
+        return $user->hasRole('manager') || $user->hasRole('company_admin') || $user->isSuperAdmin();
     }
 }
