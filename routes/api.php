@@ -1,9 +1,9 @@
 <?php
 
-use App\Http\Controllers\Api\TaskController as ApiTaskController;
-use App\Http\Controllers\Api\CompanyController as ApiCompanyController;
-use App\Http\Controllers\Api\DashboardController as ApiDashboardController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\TaskController;
+use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\CompanyController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -12,33 +12,27 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['throttle:api'])->group(function () {
+Route::prefix('v1')->group(function () {
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
-    // Public auth endpoints
-    Route::post('/auth/register', [AuthController::class, 'register']);
-    Route::post('/auth/login', [AuthController::class, 'login']);
-    Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
-    Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
-
-    // Authenticated API routes
     Route::middleware('auth:sanctum')->group(function () {
-        Route::post('/auth/logout', [AuthController::class, 'logout']);
-        Route::get('/auth/user', [AuthController::class, 'user']);
-        Route::put('/auth/user', [AuthController::class, 'updateProfile']);
+        Route::post('/logout', [AuthController::class, 'logout']);
+        Route::get('/user', [AuthController::class, 'user']);
+        Route::put('/user', [AuthController::class, 'update']);
 
-        // Dashboard
-        Route::get('/dashboard', [ApiDashboardController::class, 'index']);
+        Route::get('/dashboard', [DashboardController::class, 'index']);
 
-        // Companies
-        Route::get('/companies', [ApiCompanyController::class, 'index']);
-        Route::post('/companies/switch/{company}', [ApiCompanyController::class, 'switch']);
+        Route::apiResource('tasks', TaskController::class);
+        Route::post('/tasks/{task}/status', [TaskController::class, 'updateStatus']);
+        Route::post('/tasks/{task}/comments', [TaskController::class, 'addComment']);
+        Route::post('/tasks/{task}/start-timer', [TaskController::class, 'startTimer']);
+        Route::post('/tasks/{task}/stop-timer', [TaskController::class, 'stopTimer']);
 
-        // Tasks
-        Route::apiResource('tasks', ApiTaskController::class);
-        Route::patch('/tasks/{task}/status', [ApiTaskController::class, 'updateStatus']);
-        Route::post('/tasks/{task}/comments', [ApiTaskController::class, 'storeComment']);
-        Route::post('/tasks/{task}/attachments', [ApiTaskController::class, 'storeAttachment']);
-        Route::get('/tasks/{task}/time-entries', [ApiTaskController::class, 'timeEntries']);
-        Route::post('/tasks/{task}/time-entries', [ApiTaskController::class, 'storeTimeEntry']);
+        Route::get('/companies', [CompanyController::class, 'index']);
+        Route::post('/companies/switch', [CompanyController::class, 'switch']);
+        Route::get('/company', [CompanyController::class, 'current']);
     });
 });
