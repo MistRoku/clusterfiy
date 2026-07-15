@@ -17,9 +17,7 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): View
     {
-        return view('profile.edit', [
-            'user' => $request->user(),
-        ]);
+        return view('profile.edit', ['user' => Auth::user()]);
     }
 
     /**
@@ -28,23 +26,20 @@ class ProfileController extends Controller
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
         $user = Auth::user();
-
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $user->id,
-            'password' => 'nullable|string|min:8|confirmed',
+            'password' => 'nullable|string|min:12|confirmed',
         ]);
 
         $user->name = $validated['name'];
         $user->email = $validated['email'];
-
         if (!empty($validated['password'])) {
             $user->password = Hash::make($validated['password']);
         }
-
         $user->save();
 
-        return redirect()->route('profile.edit')->with('success', 'Profile updated successfully.');
+        return redirect()->route('profile.edit')->with('success', 'Profile updated.');
     }
 
     /**

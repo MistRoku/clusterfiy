@@ -5,12 +5,26 @@ namespace App\Http\Controllers;
 use App\Models\Task;
 use App\Models\User;
 use App\Models\Department;
+use App\Services\TaskService;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use App\Http\Requests\StoreTaskRequest;
+use App\Http\Requests\UpdateTaskRequest;
 
 class TaskController extends Controller
 {
+    use AuthorizesRequests;
+
+    protected TaskService $taskService;
+
+    public function __construct(TaskService $taskService)
+    {
+        $this->taskService = $taskService;
+        $this->authorizeResource(Task::class, 'task');
+    }
+
     public function index()
     {
         $companyId = session('current_company_id');
@@ -26,44 +40,21 @@ class TaskController extends Controller
         return view('tasks.create', compact('users', 'departments'));
     }
 
-    public function store(Request $request)
+    public function store(StoreTaskRequest $request)
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'department_id' => 'nullable|exists:departments,id',
-            'assigned_to' => 'nullable|exists:users,id',
-            'due_date' => 'nullable|date',
-            'due_time' => 'nullable|date_format:H:i',
-            'priority' => 'required|in:low,medium,high,urgent',
-            'estimated_hours' => 'nullable|numeric|min:0|max:999.99',
-        ]);
+        $validated = $request->validated();
+        $validated['company_id'] = session('current_company_id');
+        $validated['created_by'] = Auth::id();
+        $validated['status'] = 'todo';
 
-        $task = Task::create([
-            'company_id' => session('current_company_id'),
-            'department_id' => $validated['department_id'],
-            'title' => $validated['title'],
-            'description' => $validated['description'],
-            'priority' => $validated['priority'],
-            'due_date' => $validated['due_date'],
-            'due_time' => $validated['due_time'],
-            'estimated_hours' => $validated['estimated_hours'],
-            'created_by' => Auth::id(),
-            'assigned_to' => $validated['assigned_to'],
-            'status' => 'todo',
-        ]);
-
-        if ($validated['assigned_to']) {
-            $task->assignees()->attach($validated['assigned_to'], ['assigned_by' => Auth::id()]);
-        }
+        $this->taskService->create($validated);
 
         return redirect()->route('tasks.index')->with('success', 'Task created.');
     }
 
     public function show(Task $task)
     {
-        Gate::authorize('view', $task);
-        $task->load('comments.user', 'statusChanges.changedBy', 'timeEntries');
+        $task->load(['comments.user', 'statusChanges.changedBy', 'timeEntries']);
         $openTimer = $task->timeEntries()->whereNull('ended_at')->where('user_id', Auth::id())->first();
         return view('tasks.show', compact('task', 'openTimer'));
     }
@@ -77,49 +68,29 @@ class TaskController extends Controller
         return view('tasks.edit', compact('task', 'users', 'departments'));
     }
 
-    public function update(Request $request, Task $task)
+    public function update(UpdateTaskRequest $request, Task $task)
     {
-        Gate::authorize('update', $task);
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'department_id' => 'nullable|exists:departments,id',
-            'assigned_to' => 'nullable|exists:users,id',
-            'due_date' => 'nullable|date',
-            'due_time' => 'nullable|date_format:H:i',
-            'priority' => 'required|in:low,medium,high,urgent',
-            'estimated_hours' => 'nullable|numeric|min:0|max:999.99',
-        ]);
-
-        $task->update($validated);
-        if ($validated['assigned_to']) {
-            $task->assignees()->sync([$validated['assigned_to']]);
-        } else {
-            $task->assignees()->detach();
-        }
-
+        $validated = $request->validated();
+        $this->taskService->update($task, $validated);
         return redirect()->route('tasks.index')->with('success', 'Task updated.');
     }
 
     public function destroy(Task $task)
     {
-        Gate::authorize('delete', $task);
-        $task->delete();
+        $this->taskService->delete($task);
         return redirect()->route('tasks.index')->with('success', 'Task deleted.');
     }
 
     public function updateStatus(Request $request, Task $task)
     {
-        Gate::authorize('update', $task);
-        $status = $request->validate(['status' => 'required|in:todo,in_progress,in_review,blocked,done'])['status'];
-        $task->status = $status;
-        $task->save();
+        $validated = $request->validate(['status' => 'required|in:todo,in_progress,in_review,blocked,done']);
+        $this->taskService->updateStatus($task, $validated['status']);
         return back()->with('success', 'Status updated.');
     }
 
     public function addComment(Request $request, Task $task)
     {
-        Gate::authorize('view', $task);
+        $this->authorize('view', $task);
         $body = $request->validate(['body' => 'required|string|max:1000'])['body'];
         $task->comments()->create([
             'user_id' => Auth::id(),
@@ -130,7 +101,7 @@ class TaskController extends Controller
 
     public function startTimer(Request $request, Task $task)
     {
-        Gate::authorize('view', $task);
+        $this->authorize('view', $task);
         $open = $task->timeEntries()->whereNull('ended_at')->where('user_id', Auth::id())->first();
         if ($open) {
             return back()->with('error', 'You already have an open timer for this task.');
@@ -145,14 +116,42 @@ class TaskController extends Controller
 
     public function stopTimer(Task $task)
     {
-        Gate::authorize('view', $task);
-        $entry = $task->timeEntries()->whereNull('ended_at')->where('user_id', Auth::id())->first();
-        if (!$entry) {
-            return back()->with('error', 'No active timer.');
+        $this->authorize('update', $task);
+        if ($task->status !== 'in_progress') {
+            return back()->with('error', 'Only tasks in progress can be submitted for review.');
         }
-        $entry->ended_at = now();
-        $entry->duration_hours = $entry->started_at->diffInHours($entry->ended_at);
-        $entry->save();
-        return back()->with('success', 'Timer stopped.');
+        $task->status = 'in_review';
+        $task->save();
+        return back()->with('success', 'Task submitted for review.');
+    }
+
+    public function approve(Task $task)
+    {
+        $this->authorize('approve', $task);
+        if ($task->status !== 'in_review') {
+            return back()->with('error', 'Only tasks in review can be approved.');
+        }
+        $task->status = 'done';
+        $task->completed_at = now();
+        $task->save();
+        return back()->with('success', 'Task approved.');
+    }
+
+    public function reject(Request $request, Task $task)
+    {
+        $this->authorize('approve', $task);
+        if ($task->status !== 'in_review') {
+            return back()->with('error', 'Only tasks in review can be rejected.');
+        }
+        $validated = $request->validate(['rejection_reason' => 'nullable|string|max:500']);
+        $task->status = 'in_progress';
+        $task->save();
+        if (!empty($validated['rejection_reason'])) {
+            $task->comments()->create([
+                'user_id' => Auth::id(),
+                'body' => 'Rejected: ' . $validated['rejection_reason'],
+            ]);
+        }
+        return back()->with('success', 'Task rejected.');
     }
 }

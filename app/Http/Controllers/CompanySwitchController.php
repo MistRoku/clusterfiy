@@ -12,18 +12,8 @@ class CompanySwitchController extends Controller
     {
         $companyId = $request->input('company_id');
         $company = Company::findOrFail($companyId);
-        $user = Auth::user();
-        if (
-            !$user || !(
-                (method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) ||
-                (method_exists($user, 'hasRole') && $user->hasRole('super-admin')) ||
-                (isset($user->is_super_admin) && $user->is_super_admin) ||
-                (isset($user->is_admin) && $user->is_admin) ||
-                (isset($user->role) && in_array($user->role, ['super-admin', 'admin'], true))
-            )
-        ) {
+        if (!Auth::user()->isSuperAdmin())
             abort(403);
-        }
         session(['current_company_id' => $companyId]);
         return back()->with('success', 'Switched to ' . $company->name);
     }
