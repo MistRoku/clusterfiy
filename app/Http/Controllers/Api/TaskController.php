@@ -6,6 +6,7 @@ use App\Models\Task;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreTaskRequest;
 use App\Http\Requests\UpdateTaskRequest;
+use App\App\Http\Resources\TaskResource;
 use App\Services\TaskService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
