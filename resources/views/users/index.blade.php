@@ -3,51 +3,68 @@
 @section('title', 'Users')
 
 @section('content')
-    <h1 class="text-2xl font-bold mb-4">Users</h1>
-    <div class="overflow-x-auto bg-white dark:bg-gray-800 rounded shadow">
-        <table class="min-w-full">
-            <thead>
-                <tr class="border-b dark:border-gray-700">
-                    <th class="px-4 py-2 text-left">Name</th>
-                    <th class="px-4 py-2 text-left">Email</th>
-                    <th class="px-4 py-2 text-left">Role</th>
-                    <th class="px-4 py-2 text-left">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($users as $user)
-                    <tr class="border-b dark:border-gray-700">
-                        <td class="px-4 py-2">{{ $user->name }}</td>
-                        <td class="px-4 py-2">{{ $user->email }}</td>
-                        <td class="px-4 py-2">
-                            <form method="POST" action="{{ route('users.assign-role', $user) }}" class="inline">
-                                @csrf
-                                <select name="role" onchange="this.form.submit()"
-                                    class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm px-2 py-1">
-                                    <option value="">None</option>
-                                    @foreach ($roles as $role)
-                                        <option value="{{ $role->name }}"
-                                            {{ $user->hasRole($role->name) ? 'selected' : '' }}>{{ ucfirst($role->name) }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </form>
-                        </td>
-                        <td>
-                            <form method="POST" action="{{ route('users.destroy', $user) }}" class="inline"
-                                onsubmit="return confirm('Remove this user?');">
-                                @csrf @method('DELETE')
-                                <button type="submit" class="text-red-600 hover:underline">Remove</button>
-                            </form>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="4" class="px-4 py-4 text-center text-gray-500">No users.</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl md:text-3xl font-bold">Team Members</h1>
+            <p class="text-sm opacity-60">Manage your team members and their roles</p>
+        </div>
+        @can('create', App\Models\User::class)
+            <a href="{{ route('users.create') }}" class="btn btn-primary gap-2">
+                <i class="fas fa-user-plus"></i> Add User
+            </a>
+        @endcan
     </div>
-    {{ $users->links() }}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        @forelse($users as $user)
+            <div
+                class="bg-base-100 rounded-xl shadow-md p-5 border border-base-200/50 hover:shadow-lg transition-shadow duration-200">
+                <div class="flex items-center gap-4 mb-3">
+                    <div class="avatar placeholder">
+                        <div
+                            class="bg-primary text-primary-content rounded-full w-12 h-12 flex items-center justify-center text-lg font-bold">
+                            {{ substr($user->name, 0, 1) }}
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold">{{ $user->name }}</h3>
+                        <p class="text-sm opacity-60">{{ $user->email }}</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between text-sm">
+                    <div class="flex items-center gap-2">
+                        <span
+                            class="badge
+                    @if ($user->hasRole('company_admin')) badge-primary
+                    @elseif($user->hasRole('manager')) badge-secondary
+                    @else badge-neutral @endif">
+                            {{ ucfirst($user->roles->first()->name ?? 'Employee') }}
+                        </span>
+                    </div>
+                    <div class="flex gap-1">
+                        @can('update', $user)
+                            <a href="{{ route('users.edit', $user) }}" class="btn btn-info btn-xs">Edit</a>
+                        @endcan
+                        @can('delete', $user)
+                            <form method="POST" action="{{ route('users.destroy', $user) }}" class="inline"
+                                onsubmit="return confirm('Remove this user?')">
+                                @csrf @method('DELETE')
+                                <button type="submit" class="btn btn-error btn-xs">Remove</button>
+                            </form>
+                        @endcan
+                    </div>
+                </div>
+            </div>
+        @empty
+            <div class="col-span-full text-center opacity-50 py-12">
+                <i class="fas fa-users text-5xl opacity-20 mb-4"></i>
+                <p>No users found</p>
+            </div>
+        @endforelse
+    </div>
+
+    <div class="mt-4">
+        {{ $users->links() }}
+    </div>
 @endsection

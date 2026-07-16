@@ -1,67 +1,111 @@
-<div class="w-64 bg-base-100 min-h-screen p-4 shadow-lg hidden md:block border-r border-base-300">
+<aside id="sidebar"
+    class="fixed inset-y-0 left-0 z-50 w-64 bg-base-100 shadow-lg transform transition-transform duration-300 ease-in-out -translate-x-full md:translate-x-0 md:relative md:flex md:flex-col md:min-h-screen border-r border-base-300">
+    <!-- Close button (mobile) -->
+    <div class="flex justify-end p-2 md:hidden">
+        <button onclick="toggleSidebar()" class="btn btn-ghost btn-sm">
+            <i class="fas fa-times text-xl"></i>
+        </button>
+    </div>
+
     <!-- Logo -->
-    <div class="flex items-center gap-2 mb-8 px-2">
-        <img src="{{ asset('images/Clusterfiy-logo.png') }}" alt="Logo" class="h-8 w-8">
-        <span class="text-xl font-bold">Clusterfiy</span>
+    <div class="flex items-center gap-3 px-4 py-4 mb-2">
+        <img src="{{ asset('images/logo-icon.svg') }}" alt="Logo" class="h-8 w-8" onerror="this.style.display='none'">
+        <span
+            class="text-xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Clusterfiy</span>
     </div>
 
     <!-- Navigation -->
-    <ul class="menu menu-sm lg:menu-md p-0 gap-1">
-        <li>
-            @php
-                // Determine the correct dashboard link
-                $dashboardRoute =
-                    isset($currentCompany) && $currentCompany && $currentCompany->subdomain
-                        ? route('tenant.dashboard', ['subdomain' => $currentCompany->subdomain])
-                        : route('dashboard');
-            @endphp
-            <a href="{{ $dashboardRoute }}" class="flex items-center gap-3">
-                <i class="fas fa-home w-5"></i> Dashboard
-            </a>
-        </li>
+    <nav class="flex-1 overflow-y-auto px-3">
+        <ul class="menu menu-sm lg:menu-md p-0 gap-0.5">
+            <li>
+                @php
+                    $dashboardRoute =
+                        isset($currentCompany) && $currentCompany && $currentCompany->subdomain
+                            ? route('tenant.dashboard', ['subdomain' => $currentCompany->subdomain])
+                            : route('dashboard');
+                @endphp
+                <a href="{{ $dashboardRoute }}"
+                    class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-base-200 transition-colors {{ request()->routeIs('dashboard') || request()->routeIs('tenant.dashboard') ? 'bg-primary/10 text-primary' : '' }}">
+                    <i class="fas fa-home w-5 text-lg"></i> Dashboard
+                </a>
+            </li>
 
-        {{-- Only show tenant-specific links if a company is selected --}}
-        @if (isset($currentCompany) && $currentCompany)
-            <li>
-                <a href="{{ route('tasks.index') }}" class="flex items-center gap-3">
-                    <i class="fas fa-tasks w-5"></i> Tasks
-                </a>
-            </li>
-            <li>
-                <a href="{{ route('departments.index') }}" class="flex items-center gap-3">
-                    <i class="fas fa-building w-5"></i> Departments
-                </a>
-            </li>
-            <li>
-                <a href="{{ route('users.index') }}" class="flex items-center gap-3">
-                    <i class="fas fa-users w-5"></i> Users
-                </a>
-            </li>
-            <li>
-                <a href="{{ route('reports.index') }}" class="flex items-center gap-3">
-                    <i class="fas fa-chart-line w-5"></i> Reports
-                </a>
-            </li>
-        @else
-            {{-- Show a placeholder when no company is selected --}}
-            <li class="opacity-50 text-sm py-2 px-4">
-                <i class="fas fa-info-circle mr-2"></i> Select a company to manage
-            </li>
-        @endif
+            @if (isset($currentCompany) && $currentCompany)
+                @php
+                    $user = auth()->user();
+                    $isAdmin = $user->isSuperAdmin() || $user->hasRole('company_admin');
+                    $isManager = $user->hasRole('manager');
+                @endphp
 
-        @if (auth()->user()->isSuperAdmin())
-            <li class="menu-title mt-4 text-xs uppercase opacity-50">Admin</li>
-            <li>
-                <a href="{{ route('companies.index') }}" class="flex items-center gap-3">
-                    <i class="fas fa-globe w-5"></i> All Companies
-                </a>
-            </li>
-        @endif
-    </ul>
+                <li>
+                    <a href="{{ route('tasks.index') }}"
+                        class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-base-200 transition-colors {{ request()->routeIs('tasks.*') ? 'bg-primary/10 text-primary' : '' }}">
+                        <i class="fas fa-tasks w-5 text-lg"></i> Tasks
+                        @php
+                            $taskCount = \App\Models\Task::where('company_id', session('current_company_id'))
+                                ->where('status', '!=', 'done')
+                                ->count();
+                        @endphp
+                        @if ($taskCount > 0)
+                            <span class="badge badge-primary badge-sm ml-auto">{{ $taskCount }}</span>
+                        @endif
+                    </a>
+                </li>
+
+                @if ($isAdmin || $isManager)
+                    <li>
+                        <a href="{{ route('users.index') }}"
+                            class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-base-200 transition-colors {{ request()->routeIs('users.*') ? 'bg-primary/10 text-primary' : '' }}">
+                            <i class="fas fa-users w-5 text-lg"></i> Users
+                        </a>
+                    </li>
+                @endif
+
+                @if ($isAdmin || $isManager)
+                    <li>
+                        <a href="{{ route('reports.index') }}"
+                            class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-base-200 transition-colors {{ request()->routeIs('reports.*') ? 'bg-primary/10 text-primary' : '' }}">
+                            <i class="fas fa-chart-line w-5 text-lg"></i> Reports
+                        </a>
+                    </li>
+                @endif
+
+                @if ($isAdmin)
+                    <li>
+                        <a href="{{ route('departments.index') }}"
+                            class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-base-200 transition-colors {{ request()->routeIs('departments.*') ? 'bg-primary/10 text-primary' : '' }}">
+                            <i class="fas fa-building w-5 text-lg"></i> Departments
+                        </a>
+                    </li>
+                @endif
+
+                <li>
+                    <a href="{{ route('profile.edit') }}"
+                        class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-base-200 transition-colors {{ request()->routeIs('profile.*') ? 'bg-primary/10 text-primary' : '' }}">
+                        <i class="fas fa-user-cog w-5 text-lg"></i> Profile
+                    </a>
+                </li>
+            @else
+                <li class="opacity-50 text-sm py-2 px-4">
+                    <i class="fas fa-info-circle mr-2"></i> Select a company to manage
+                </li>
+            @endif
+
+            @if (auth()->user()->isSuperAdmin())
+                <li class="menu-title mt-4 text-xs uppercase opacity-50 px-4">Admin</li>
+                <li>
+                    <a href="{{ route('companies.index') }}"
+                        class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-base-200 transition-colors {{ request()->routeIs('companies.*') ? 'bg-primary/10 text-primary' : '' }}">
+                        <i class="fas fa-globe w-5 text-lg"></i> All Companies
+                    </a>
+                </li>
+            @endif
+        </ul>
+    </nav>
 
     <!-- Company Switcher (Super Admin) -->
     @if (auth()->user()->isSuperAdmin())
-        <div class="mt-6 pt-4 border-t border-base-300">
+        <div class="border-t border-base-300 p-4">
             <form method="POST" action="{{ route('switch-company') }}" class="flex flex-col gap-2">
                 @csrf
                 <select name="company_id" class="select select-bordered select-sm w-full" onchange="this.form.submit()">
@@ -77,14 +121,14 @@
             @if (session('current_company_id'))
                 <form method="POST" action="{{ route('reset-company') }}" class="mt-1">
                     @csrf
-                    <button type="submit" class="btn btn-ghost btn-xs w-full">Reset to Global</button>
+                    <button type="submit" class="btn btn-ghost btn-xs w-full text-xs">Reset to Global</button>
                 </form>
             @endif
         </div>
     @endif
 
     <!-- User Menu (Bottom) -->
-    <div class="mt-auto pt-4 border-t border-base-300">
+    <div class="border-t border-base-300 p-4">
         <div class="dropdown dropdown-top w-full">
             <div tabindex="0"
                 class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200 cursor-pointer transition">
@@ -107,4 +151,24 @@
             </ul>
         </div>
     </div>
-</div>
+</aside>
+
+<!-- Overlay (mobile) -->
+<div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+<script>
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        sidebar.classList.toggle('-translate-x-full');
+        overlay.classList.toggle('hidden');
+    }
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar.classList.contains('-translate-x-full')) {
+                toggleSidebar();
+            }
+        }
+    });
+</script>

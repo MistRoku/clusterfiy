@@ -5,36 +5,68 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ config('app.name', 'Clusterfiy') }} - @yield('title')</title>
+    <title>{{ config('app.name', 'Clusterfiy') }} - @yield('title', 'Dashboard')</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Ensure DaisyUI works with dark mode */
-        .dark .bg-base-100 {
-            background-color: #1e293b;
+        body {
+            font-family: 'Inter', sans-serif;
         }
 
-        .dark .bg-base-200 {
-            background-color: #0f172a;
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
         }
 
-        .dark .text-base-content {
-            color: #e2e8f0;
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #6366f1;
+            border-radius: 9999px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #4f46e5;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .dark .glass {
+            background: rgba(15, 23, 42, 0.8);
+            border-color: rgba(255, 255, 255, 0.05);
         }
     </style>
 </head>
 
-<body class="font-sans antialiased bg-base-200 text-base-content">
+<body class="bg-base-200 text-base-content">
     <div class="flex min-h-screen">
         @include('partials.sidebar')
-        <div class="flex-1 flex flex-col">
-            @include('layouts.navigation')
-            <main class="flex-1 p-6">
+        <div class="flex-1 flex flex-col min-h-screen">
+            @include('partials.topbar')
+            <main class="flex-1 p-4 md:p-6 overflow-x-auto">
                 @if (session('success'))
-                    <div class="alert alert-success mb-4">{{ session('success') }}</div>
+                    <div class="alert alert-success mb-4 shadow-lg rounded-xl">
+                        <i class="fas fa-check-circle"></i>
+                        <span>{{ session('success') }}</span>
+                    </div>
                 @endif
                 @if (session('error'))
-                    <div class="alert alert-error mb-4">{{ session('error') }}</div>
+                    <div class="alert alert-error mb-4 shadow-lg rounded-xl">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span>{{ session('error') }}</span>
+                    </div>
+                @endif
+                @if (session('info'))
+                    <div class="alert alert-info mb-4 shadow-lg rounded-xl">
+                        <i class="fas fa-info-circle"></i>
+                        <span>{{ session('info') }}</span>
+                    </div>
                 @endif
                 @yield('content')
             </main>

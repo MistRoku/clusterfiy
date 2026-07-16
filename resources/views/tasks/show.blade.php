@@ -3,89 +3,225 @@
 @section('title', $task->title)
 
 @section('content')
-    <div x-data="{ openTimer: {{ $openTimer ? 'true' : 'false' }} }">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
-            <h1 class="text-2xl font-bold">{{ $task->title }}</h1>
-            <form method="POST" action="{{ route('tasks.update-status', $task) }}" class="mt-2 sm:mt-0">
-                @csrf
-                <select name="status" onchange="this.form.submit()"
-                    class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm px-3 py-1">
-                    @foreach (['todo', 'in_progress', 'in_review', 'blocked', 'done'] as $status)
-                        <option value="{{ $status }}" {{ $task->status == $status ? 'selected' : '' }}>
-                            {{ ucfirst(str_replace('_', ' ', $status)) }}</option>
-                    @endforeach
-                </select>
+<div x-data="taskShow()" x-init="init()">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl md:text-3xl font-bold">{{ $task->title }}</h1>
+            <div class="flex items-center gap-3 mt-1">
+                <span class="badge" :class="{
+                    'badge-neutral': '{{ $task->status }}' === 'todo',
+                    'badge-primary': '{{ $task->status }}' === 'in_progress',
+                    'badge-secondary': '{{ $task->status }}' === 'in_review',
+                    'badge-error': '{{ $task->status }}' === 'blocked',
+                    'badge-success': '{{ $task->status }}' === 'done'
+                }">{{ ucfirst(str_replace('_', ' ', $task->status)) }}</span>
+                <span class="badge" :class="{
+                    'badge-ghost': '{{ $task->priority }}' === 'low',
+                    'badge-info': '{{ $task->priority }}' === 'medium',
+                    'badge-warning': '{{ $task->priority }}' === 'high',
+                    'badge-error': '{{ $task->priority }}' === 'urgent'
+                }">{{ ucfirst($task->priority) }}</span>
+                @if($task->isOverdue())
+                    <span class="badge badge-error"><i class="fas fa-exclamation-triangle mr-1"></i> Overdue</span>
+                @endif
+            </div>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <a href="{{ route('tasks.edit', $task) }}" class="btn btn-info btn-sm gap-2">
+                <i class="fas fa-edit"></i> Edit
+            </a>
+            <form method="POST" action="{{ route('tasks.destroy', $task) }}" class="inline" onsubmit="return confirm('Delete this task?')">
+                @csrf @method('DELETE')
+                <button type="submit" class="btn btn-error btn-sm gap-2">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
             </form>
         </div>
+    </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-            <div><strong>Priority:</strong> {{ ucfirst($task->priority) }}</div>
-            <div><strong>Due:</strong> {{ $task->due_date ? $task->due_date->format('Y-m-d') : 'No due date' }}</div>
-            <div><strong>Department:</strong> {{ $task->department->name ?? 'None' }}</div>
-            <div><strong>Assigned To:</strong> {{ $task->assignee->name ?? 'Unassigned' }}</div>
+    <!-- Status Change -->
+    <div class="bg-base-100 rounded-xl shadow-md p-4 mb-6 border border-base-200/50">
+        <form method="POST" action="{{ route('tasks.update-status', $task) }}" class="flex items-center gap-4 flex-wrap">
+            @csrf
+            <label class="text-sm font-medium">Change Status:</label>
+            <select name="status" onchange="this.form.submit()" class="select select-bordered select-sm">
+                @foreach(['todo','in_progress','in_review','blocked','done'] as $status)
+                <option value="{{ $status }}" {{ $task->status == $status ? 'selected' : '' }}>
+                    {{ ucfirst(str_replace('_', ' ', $status)) }}
+                </option>
+                @endforeach
+            </select>
+        </form>
+    </div>
+
+    <!-- Review Actions -->
+    @if($task->status === 'in_progress' && auth()->user()->can('update', $task))
+    <div class="bg-base-100 rounded-xl shadow-md p-4 mb-6 border border-base-200/50">
+        <form method="POST" action="{{ route('tasks.submit-review', $task) }}">
+            @csrf
+            <button type="submit" class="btn btn-warning btn-sm gap-2">
+                <i class="fas fa-check-double"></i> Submit for Review
+            </button>
+        </form>
+    </div>
+    @endif
+
+    @if($task->status === 'in_review' && auth()->user()->can('approve', $task))
+    <div class="bg-base-100 rounded-xl shadow-md p-4 mb-6 border border-base-200/50">
+        <div class="flex flex-wrap gap-3">
+            <form method="POST" action="{{ route('tasks.approve', $task) }}">
+                @csrf
+                <button type="submit" class="btn btn-success btn-sm gap-2">
+                    <i class="fas fa-check"></i> Approve
+                </button>
+            </form>
+            <form method="POST" action="{{ route('tasks.reject', $task) }}" class="flex items-center gap-2 flex-wrap">
+                @csrf
+                <input type="text" name="rejection_reason" placeholder="Reason (optional)..."
+                       class="input input-bordered input-sm w-48">
+                <button type="submit" class="btn btn-error btn-sm gap-2" onclick="return confirm('Reject this task?')">
+                    <i class="fas fa-times"></i> Reject
+                </button>
+            </form>
         </div>
+    </div>
+    @endif
 
-        <div class="mt-4">
-            <h3 class="font-semibold">Description</h3>
+    <!-- Details Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div class="bg-base-100 rounded-xl shadow-md p-4 border border-base-200/50">
+            <h3 class="text-sm font-medium opacity-60 mb-2">Description</h3>
             <p class="whitespace-pre-wrap">{{ $task->description ?? 'No description' }}</p>
         </div>
+        <div class="bg-base-100 rounded-xl shadow-md p-4 border border-base-200/50">
+            <h3 class="text-sm font-medium opacity-60 mb-2">Details</h3>
+            <dl class="grid grid-cols-2 gap-2 text-sm">
+                <dt class="opacity-60">Department</dt>
+                <dd>{{ $task->department->name ?? 'None' }}</dd>
+                <dt class="opacity-60">Assigned To</dt>
+                <dd>{{ $task->assignee->name ?? 'Unassigned' }}</dd>
+                <dt class="opacity-60">Due Date</dt>
+                <dd>{{ $task->due_date ? $task->due_date->format('Y-m-d') : 'None' }}</dd>
+                <dt class="opacity-60">Estimated Hours</dt>
+                <dd>{{ $task->estimated_hours ?? 'N/A' }}</dd>
+                <dt class="opacity-60">Actual Hours</dt>
+                <dd>{{ $task->actual_hours ?? 'N/A' }}</dd>
+                <dt class="opacity-60">Created By</dt>
+                <dd>{{ $task->creator->name }}</dd>
+                <dt class="opacity-60">Created At</dt>
+                <dd>{{ $task->created_at->format('Y-m-d H:i') }}</dd>
+            </dl>
+        </div>
+    </div>
 
-        <!-- Time Tracking with Alpine -->
-        <div class="mt-6 bg-white dark:bg-gray-800 p-4 rounded shadow">
-            <h3 class="text-lg font-semibold mb-2">Time Tracking</h3>
+    <!-- Time Tracking -->
+    <div class="bg-base-100 rounded-xl shadow-md p-4 mb-6 border border-base-200/50">
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="text-lg font-semibold"><i class="fas fa-clock text-primary mr-2"></i>Time Tracking</h3>
             <div>
-                <template x-if="openTimer">
-                    <button
-                        @click="fetch('{{ route('tasks.stop-timer', $task) }}', { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } }).then(() => location.reload())"
-                        class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-700 focus:bg-red-700 active:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition ease-in-out duration-150">Stop
-                        Timer</button>
-                </template>
-                <template x-if="!openTimer">
-                    <button
-                        @click="fetch('{{ route('tasks.start-timer', $task) }}', { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } }).then(() => location.reload())"
-                        class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 focus:bg-green-700 active:bg-green-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition ease-in-out duration-150">Start
-                        Timer</button>
-                </template>
+                @if($openTimer)
+                    <button @click="stopTimer()" class="btn btn-error btn-sm gap-2">
+                        <i class="fas fa-stop"></i> Stop Timer
+                    </button>
+                @else
+                    <button @click="startTimer()" class="btn btn-success btn-sm gap-2">
+                        <i class="fas fa-play"></i> Start Timer
+                    </button>
+                @endif
             </div>
-            <ul class="mt-2 text-sm">
-                @foreach ($task->timeEntries as $entry)
-                    <li>{{ $entry->started_at->format('H:i') }} –
-                        {{ $entry->ended_at ? $entry->ended_at->format('H:i') : 'ongoing' }}
-                        ({{ $entry->duration_hours ?? '0' }}h)</li>
-                @endforeach
-            </ul>
+        </div>
+        <div class="space-y-2 max-h-48 overflow-y-auto">
+            @foreach($task->timeEntries as $entry)
+            <div class="flex justify-between items-center text-sm p-2 bg-base-200/50 rounded-lg">
+                <span>{{ $entry->started_at->format('H:i') }} - {{ $entry->ended_at ? $entry->ended_at->format('H:i') : 'Ongoing' }}</span>
+                <span class="font-medium">{{ number_format($entry->duration_hours ?? 0, 1) }}h</span>
+            </div>
+            @endforeach
+        </div>
+    </div>
+
+    <!-- Tabs: Comments, History -->
+    <div x-data="{ tab: 'comments' }">
+        <div class="tabs tabs-boxed bg-base-100 p-1 mb-4 rounded-xl">
+            <button class="tab" :class="{ 'tab-active': tab === 'comments' }" @click="tab = 'comments'">
+                <i class="fas fa-comments mr-2"></i> Comments ({{ $task->comments->count() }})
+            </button>
+            <button class="tab" :class="{ 'tab-active': tab === 'history' }" @click="tab = 'history'">
+                <i class="fas fa-history mr-2"></i> History
+            </button>
         </div>
 
         <!-- Comments -->
-        <div class="mt-6">
-            <h3 class="text-lg font-semibold">Comments</h3>
-            <div class="space-y-2 mt-2 max-h-96 overflow-y-auto">
-                @foreach ($task->comments as $comment)
-                    <div class="bg-gray-100 dark:bg-gray-800 p-3 rounded">
-                        <strong>{{ $comment->user->name }}</strong> <span
-                            class="text-xs">{{ $comment->created_at->diffForHumans() }}</span>
-                        <p class="mt-1">{{ $comment->body }}</p>
+        <div x-show="tab === 'comments'" class="bg-base-100 rounded-xl shadow-md p-4 border border-base-200/50">
+            <div class="space-y-4 max-h-80 overflow-y-auto custom-scrollbar mb-4">
+                @foreach($task->comments as $comment)
+                <div class="flex gap-3">
+                    <div class="avatar placeholder">
+                        <div class="bg-primary text-primary-content rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">
+                            {{ substr($comment->user->name, 0, 1) }}
+                        </div>
                     </div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                            <span class="font-medium">{{ $comment->user->name }}</span>
+                            <span class="text-xs opacity-50">{{ $comment->created_at->diffForHumans() }}</span>
+                        </div>
+                        <p class="text-sm mt-1">{{ $comment->body }}</p>
+                    </div>
+                </div>
                 @endforeach
             </div>
-            <form method="POST" action="{{ route('tasks.add-comment', $task) }}" class="mt-3">
+
+            <form method="POST" action="{{ route('tasks.add-comment', $task) }}" class="flex gap-3">
                 @csrf
-                <textarea name="body"
-                    class="mt-1 block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm p-2"
-                    rows="3" placeholder="Add a comment..."></textarea>
-                <x-primary-button class="mt-2">{{ __('Post Comment') }}</x-primary-button>
+                <textarea name="body" class="textarea textarea-bordered flex-1" rows="2" placeholder="Add a comment..."></textarea>
+                <button type="submit" class="btn btn-primary btn-sm self-end">Post</button>
             </form>
         </div>
 
-        <!-- Status History -->
-        <div class="mt-6">
-            <h3 class="text-lg font-semibold">Status History</h3>
-            <ul class="list-disc ml-5">
-                @foreach ($task->statusChanges as $change)
-                    <li>{{ $change->from_status ?? 'Start' }} → {{ $change->to_status }} by
-                        {{ $change->changedBy->name ?? 'System' }} at {{ $change->created_at->format('Y-m-d H:i') }}</li>
+        <!-- History -->
+        <div x-show="tab === 'history'" class="bg-base-100 rounded-xl shadow-md p-4 border border-base-200/50">
+            <div class="space-y-2 max-h-80 overflow-y-auto custom-scrollbar">
+                @foreach($task->statusChanges as $change)
+                <div class="flex items-center gap-3 text-sm p-2 bg-base-200/50 rounded-lg">
+                    <span class="badge badge-ghost">{{ $change->from_status ?? 'Created' }}</span>
+                    <i class="fas fa-arrow-right opacity-50"></i>
+                    <span class="badge badge-primary">{{ $change->to_status }}</span>
+                    <span class="opacity-50">by {{ $change->changedBy->name ?? 'System' }}</span>
+                    <span class="opacity-40 text-xs">{{ $change->created_at->format('Y-m-d H:i') }}</span>
+                </div>
                 @endforeach
-            </ul>
+            </div>
         </div>
     </div>
+</div>
+
+@push('scripts')
+<script>
+    function taskShow() {
+        return {
+            init() {},
+            startTimer() {
+                fetch('{{ route('tasks.start-timer', $task) }}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json'
+                    }
+                }).then(() => window.location.reload());
+            },
+            stopTimer() {
+                fetch('{{ route('tasks.stop-timer', $task) }}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json'
+                    }
+                }).then(() => window.location.reload());
+            }
+        }
+    }
+</script>
+@endpush
 @endsection
