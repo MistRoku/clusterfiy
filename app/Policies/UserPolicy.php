@@ -20,7 +20,11 @@ class UserPolicy
      */
     public function view(User $user, User $model): bool
     {
-        return false;
+        if ($user->isSuperAdmin())
+            return true;
+        if ($user->company_id !== $model->company_id)
+            return false;
+        return $user->hasAnyRole(['company_admin', 'manager']) || $user->id === $model->id;
     }
 
     /**
@@ -36,9 +40,11 @@ class UserPolicy
      */
     public function update(User $user, User $model): bool
     {
-        if ($user->id === $model->id)
+        if ($user->isSuperAdmin())
             return true;
-        return $user->company_id === $model->company_id && $user->hasRole('company_admin');
+        if ($user->company_id !== $model->company_id)
+            return false;
+        return $user->hasRole('company_admin') || $user->id === $model->id;
     }
 
     /**
@@ -47,8 +53,24 @@ class UserPolicy
     public function delete(User $user, User $model): bool
     {
         if ($user->id === $model->id)
+            return false; // Cannot delete self
+        if ($user->isSuperAdmin())
+            return true;
+        if ($user->company_id !== $model->company_id)
             return false;
-        return $user->company_id === $model->company_id && $user->hasRole('company_admin');
+
+        // Prevent deleting last company admin
+        if ($model->hasRole('company_admin')) {
+            $adminCount = User::where('company_id', $model->company_id)
+                ->whereHas('roles', function ($q) {
+                    $q->where('name', 'company_admin');
+                })
+                ->count();
+            if ($adminCount <= 1)
+                return false;
+        }
+
+        return $user->hasRole('company_admin');
     }
 
     /**

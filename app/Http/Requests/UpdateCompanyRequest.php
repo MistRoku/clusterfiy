@@ -12,7 +12,8 @@ class UpdateCompanyRequest extends FormRequest
      */
     public function authorize()
     {
-        return $this->user()->isSuperAdmin();
+        $company = $this->route('company');
+        return $this->user()?->can('update', $company) ?? false;
     }
 
     /**

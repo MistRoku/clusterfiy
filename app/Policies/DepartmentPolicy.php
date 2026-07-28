@@ -12,7 +12,7 @@ class DepartmentPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasRole('company_admin') || $user->isSuperAdmin();
+        return $user->isSuperAdmin() || $user->company_id === $department->company_id;
     }
 
     public function create(User $user): bool
@@ -22,11 +22,22 @@ class DepartmentPolicy
 
     public function update(User $user, Department $department): bool
     {
-        return $user->company_id === $department->company_id && ($user->hasRole('company_admin') || $user->isSuperAdmin());
+        if ($user->isSuperAdmin()) return true;
+        return $user->company_id === $department->company_id && $user->hasRole('company_admin');
     }
 
     public function delete(User $user, Department $department): bool
     {
-        return $user->company_id === $department->company_id && ($user->hasRole('company_admin') || $user->isSuperAdmin());
+        if ($user->isSuperAdmin())
+            return true;
+        if ($user->company_id !== $department->company_id)
+            return false;
+
+        // Prevent deleting department with tasks
+        if ($department->tasks()->exists()) {
+            return false;
+        }
+
+        return $user->hasRole('company_admin');
     }
 }
