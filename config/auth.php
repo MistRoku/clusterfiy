@@ -96,7 +96,7 @@ return [
         'users' => [
             'provider' => 'users',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
-            'expire' => 60,
+            'expire' => 30,
             'throttle' => 60,
         ],
     ],
@@ -114,6 +114,12 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
-    'registration' => false,
+    /*
+    | Self-registration switch. The platform spec assumes admin-provisioned
+    | accounts only, but this product deliberately ships open registration
+    | (demo + SaaS signup depend on it). Set false for locked-down tenants;
+    | RegisteredUserController aborts with 403 when disabled.
+    */
+    'registration' => env('AUTH_REGISTRATION_OPEN', true),
 
 ];

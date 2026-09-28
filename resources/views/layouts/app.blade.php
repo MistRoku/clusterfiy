@@ -20,13 +20,14 @@
 <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
 <body class="bg-white text-neutral-900 antialiased" style="font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;">
-<header class="border-b border-neutral-200 bg-white">
+<header class="border-b border-neutral-200 bg-white" x-data="{ open: false }">
 <nav class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3" aria-label="Main">
 <a href="{{ route('home') }}" class="flex items-center gap-2">
 <img src="{{ asset('images/logo.png') }}" alt="Clusterfiy logo" width="28" height="28">
 <span class="text-lg font-semibold">Clusterfiy</span>
 </a>
-<div class="flex items-center gap-4">
+<button type="button" @click="open = ! open" :aria-expanded="open" aria-controls="main-menu" aria-label="Toggle menu" class="border border-neutral-300 px-3 py-1">Menu</button>
+<div id="main-menu" class="items-center gap-4" :class="open ? 'flex' : 'hidden'">
 <a href="{{ route('pricing') }}">Pricing</a>
 <a href="{{ route('terms') }}">Terms</a>
 <a href="{{ route('privacy') }}">Privacy</a>
@@ -43,9 +44,9 @@
 </nav>
 </header>
 <main class="mx-auto max-w-6xl px-4 py-8">
-@if(session('success'))<div role="alert" class="border border-neutral-300 bg-white p-3">{{ session('success') }}</div>@endif
-@if(session('error'))<div role="alert" class="border border-neutral-300 bg-white p-3">{{ session('error') }}</div>@endif
-@if($errors->any())<div role="alert" class="border border-neutral-300 bg-white p-3"><ul>@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul></div>@endif
+@if(session('success'))<div role="alert" x-data="{ show: true }" x-show="show" class="border border-neutral-300 bg-white p-3">{{ session('success') }} <button type="button" @click="show = false" aria-label="Dismiss">Dismiss</button></div>@endif
+@if(session('error'))<div role="alert" x-data="{ show: true }" x-show="show" class="border border-neutral-300 bg-white p-3">{{ session('error') }} <button type="button" @click="show = false" aria-label="Dismiss">Dismiss</button></div>@endif
+@if($errors->any())<div role="alert" x-data="{ show: true }" x-show="show" class="border border-neutral-300 bg-white p-3"><ul>@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul> <button type="button" @click="show = false" aria-label="Dismiss">Dismiss</button></div>@endif
 {{ $slot ?? '' }}
 @yield('content')
 </main>

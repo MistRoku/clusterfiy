@@ -13,7 +13,7 @@ Each section carries one status tag so this spec never becomes a false-claims fi
 ## 1. Architecture & Stack [Partial]
 
 - Backend: PHP 8.5, Laravel 13 (monolithic). **Delta:** `composer.json` currently requires PHP `^8.3`; CI pins 8.3. Bumping to 8.5 is a one-line change once the server runs it.
-- Frontend: Blade templates + Alpine.js, Tailwind CSS, Vite. **[Shipped]**
+- Frontend: Blade templates + Alpine.js, Tailwind CSS, Vite. **[Shipped]** (Alpine drives the mobile nav toggle and dismissible alerts in `layouts/app.blade.php`, initialised in `resources/js/app.js`.)
 - Database: PostgreSQL preferred, MySQL acceptable. **Delta:** dev runs SQLite, prod template targets MySQL (`deploy/.env.production.example`). PostgreSQL is unconfigured — **[Planned]**.
 - Cache/Queue: Redis for queues, cache, and session storage. **Delta:** currently `database` driver for all three — **[Planned]**.
 - Real-time: Laravel Echo + Soketi (self-hosted) or Pusher — **[Planned]**.
@@ -37,9 +37,7 @@ Each section carries one status tag so this spec never becomes a false-claims fi
 
 ## 3. Authentication & Account Provisioning [Partial]
 
-- **Delta:** self-registration EXISTS (`register` routes + demo flow). The spec's "no self-registration" is a policy choice for locked-down deployments — enforce by disabling the route, not assumed.
-- Login: email + password with `throttle.login` alias; remember-me via default session config.
-- Password recovery: Laravel default reset flow (hashed tokens). 30-minute expiry / single-use / 5-per-hour-per-email tightening is **[Planned]** — current expiry is the framework default.
+- **Resolved:** self-registration stays open as a deliberate product decision, gated by `config('auth.registration')` (`AUTH_REGISTRATION_OPEN`, default true; `RegisteredUserController` aborts 403 when false). Login/register POSTs are throttled 5/min; reset links expire in **30 minutes** (`config/auth.php`), tokens are single-use (deleted on reset), reset-link requests throttled 5/hour. Missing auth views (`auth.login/register/forgot-password/reset-password`) and the missing password POST routes were added; previously only the GET forgot-password route existed.
 - 2FA: optional via Laravel Fortify (config + columns present).
 - API tokens: Laravel Sanctum. **[Shipped]**
 - Session security: CSRF protection (Stripe webhook explicitly exempted), secure cookies via `SESSION_SECURE_COOKIE` in prod env, HTTPS enforced at Nginx.
@@ -95,7 +93,7 @@ Each section carries one status tag so this spec never becomes a false-claims fi
 
 ## 12. Notifications [Partial]
 
-- In-app (database channel, bell with unread count at `/notifications`) + email (queued mail for assignment/invites) **[Shipped]**.
+- In-app (database channel, bell with unread count at `/notifications`) + email (queued mail for assignment/invites) **[Shipped]**. The `notifications` table migration (`2026_09_30_000001`) was missing and is now added — previously a fresh install threw on the first database notification.
 - `notification_preferences` opt-outs, `broadcast_notifications` (admin → all/by-role), `smtp_settings` management — **[Planned]**.
 
 ## 13. Automation [Planned]
