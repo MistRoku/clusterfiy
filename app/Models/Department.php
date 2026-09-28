@@ -4,7 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\Scopes\TenantScope;
+use App\Models\Scopes\CompanyScope;
+use App\Support\CompanyContext;
 
 class Department extends Model
 {
@@ -14,7 +15,13 @@ class Department extends Model
 
     protected static function booted()
     {
-        static::addGlobalScope(new TenantScope);
+        static::addGlobalScope(new CompanyScope);
+
+        static::creating(function (Department $dept) {
+            if (! $dept->company_id) {
+                $dept->company_id = CompanyContext::get();
+            }
+        });
     }
 
     public function company()

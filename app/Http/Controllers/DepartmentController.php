@@ -21,7 +21,7 @@ class DepartmentController extends Controller
 
     public function index()
     {
-        $departments = Department::where('company_id', session('current_company_id'))->paginate(10);
+        $departments = Department::paginate(10);
         return view('departments.index', compact('departments'));
     }
 
@@ -38,8 +38,14 @@ class DepartmentController extends Controller
             'description' => 'nullable|string',
             'manager_id' => 'nullable|exists:users,id',
         ]);
+        // manager must belong to current company
+        if (! empty($validated['manager_id'])) {
+            $mgr = User::whereKey($validated['manager_id'])->first();
+            if (! $mgr || ! $mgr->belongsToCompany((int) session('current_company_id'))) {
+                return back()->withErrors(['manager_id' => 'Manager must be a member of the current company.']);
+            }
+        }
         Department::create(array_merge($validated, [
-            'company_id' => session('current_company_id'),
             'is_active' => true,
         ]));
         return redirect()->route('departments.index')->with('success', 'Department created.');

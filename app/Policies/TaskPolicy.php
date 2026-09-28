@@ -4,46 +4,46 @@ namespace App\Policies;
 
 use App\Models\Task;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class TaskPolicy
 {
-    /**
-     * Determine whether the user can view any models.
-     */
-    public function viewAny(User $user)
+    public function viewAny(User $user): bool
     {
-        return true; // all authenticated users can see the list
+        return true;
     }
 
-    public function view(User $user, Task $task)
+    public function view(User $user, Task $task): bool
     {
-        return $user->company_id === $task->company_id || $user->isSuperAdmin();
+        return $user->isSuperAdmin() || (int) $user->company_id === (int) $task->company_id;
     }
 
-    public function create(User $user)
+    public function create(User $user): bool
     {
-        return $user->hasPermissionTo('create tasks') || $user->isSuperAdmin();
+        // owner + manager create; members can create only via self-assign flow if given permission
+        return $user->isSuperAdmin() || $user->hasPermissionTo('create tasks') || $user->hasRole(['company_admin', 'manager', 'employee']);
     }
 
-    public function update(User $user, Task $task)
+    public function update(User $user, Task $task): bool
     {
-        if ($user->id === $task->created_by)
-            return true;
-        if ($user->hasPermissionTo('edit tasks') && $user->company_id === $task->company_id)
-            return true;
-        return $user->isSuperAdmin();
+        if ($user->isSuperAdmin()) return true;
+        if ((int) $user->company_id !== (int) $task->company_id) return false;
+        if ($user->id === $task->created_by) return true;
+        if ($user->id === $task->assigned_to) return true;
+        return $user->hasRole(['company_admin', 'manager']);
     }
 
-    public function delete(User $user, Task $task)
+    public function delete(User $user, Task $task): bool
     {
-        if ($user->id === $task->created_by)
-            return true;
-        return $user->company_id === $task->company_id && $user->hasRole('company_admin');
+        if ($user->isSuperAdmin()) return true;
+        if ((int) $user->company_id !== (int) $task->company_id) return false;
+        if ($user->id === $task->created_by) return true;
+        return $user->hasRole('company_admin');
     }
 
     public function approve(User $user, Task $task): bool
     {
-        return $user->hasRole('manager') || $user->hasRole('company_admin') || $user->isSuperAdmin();
+        if ($user->isSuperAdmin()) return true;
+        if ((int) $user->company_id !== (int) $task->company_id) return false;
+        return $user->hasRole(['manager', 'company_admin']);
     }
 }

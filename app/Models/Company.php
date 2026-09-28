@@ -19,6 +19,7 @@ class Company extends Model
         'logo',
         'timezone',
         'is_active',
+        'plan',
         'settings',
         'created_by',
         'trial_ends_at',
@@ -29,6 +30,23 @@ class Company extends Model
         'is_active' => 'boolean',
         'trial_ends_at' => 'datetime',
     ];
+
+    public function members()
+    {
+        return $this->belongsToMany(User::class, 'company_user')
+            ->withPivot('role', 'invited_by', 'accepted_at')
+            ->withTimestamps();
+    }
+
+    public function memberships()
+    {
+        return $this->hasMany(CompanyUser::class, 'company_id');
+    }
+
+    public function invitations()
+    {
+        return $this->hasMany(CompanyInvitation::class);
+    }
 
     public function users()
     {

@@ -12,13 +12,14 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\Scopes\TenantScope;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\Scopes\CompanyScope;
 
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
-    use HasApiTokens, Notifiable, HasRoles, SoftDeletes;
+    use HasApiTokens, HasFactory, Notifiable, HasRoles, SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -51,7 +52,8 @@ class User extends Authenticatable
 
     protected static function booted()
     {
-        static::addGlobalScope(new TenantScope);
+        // Users are NOT tenant-scoped: one login can belong to many companies
+        // via company_user. Company membership is checked explicitly.
     }
 
     public function company()
@@ -112,6 +114,48 @@ class User extends Authenticatable
     public function isEmployee(): bool
     {
         return $this->hasRole('employee');
+    }
+
+    public function companies()
+    {
+        return $this->belongsToMany(Company::class, 'company_user')
+            ->withPivot('role', 'invited_by', 'accepted_at')
+            ->withTimestamps();
+    }
+
+    public function memberships()
+    {
+        return $this->hasMany(CompanyUser::class, 'user_id');
+    }
+
+    public function belongsToCompany(int $companyId): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+        if ((int) $this->company_id === $companyId) {
+            return true;
+        }
+        return $this->companies()->where('companies.id', $companyId)->exists()
+            || $this->memberships()->where('company_id', $companyId)->exists();
+    }
+
+    public function companyRole(int $companyId): ?string
+    {
+        $pivot = $this->memberships()->where('company_id', $companyId)->first();
+        if ($pivot) {
+            return $pivot->role;
+        }
+        if ((int) $this->company_id === $companyId) {
+            if ($this->hasRole('company_admin')) {
+                return 'owner';
+            }
+            if ($this->hasRole('manager')) {
+                return 'manager';
+            }
+            return 'member';
+        }
+        return null;
     }
 
     public function getCurrentCompanyAttribute()

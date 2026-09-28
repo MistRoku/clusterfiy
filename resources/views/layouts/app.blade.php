@@ -1,78 +1,63 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="{{ session('dark_mode') ? 'dark' : '' }}">
-
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ config('app.name', 'Clusterfiy') }} - @yield('title', 'Dashboard')</title>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #6366f1;
-            border-radius: 9999px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #4f46e5;
-        }
-
-        .glass {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .dark .glass {
-            background: rgba(15, 23, 42, 0.8);
-            border-color: rgba(255, 255, 255, 0.05);
-        }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ $title ?? 'Clusterfiy' }}</title>
+<meta name="description" content="{{ $metaDescription ?? 'Clusterfiy multi-company team management.' }}">
+<link rel="canonical" href="{{ url()->current() }}">
+<meta property="og:title" content="{{ $title ?? 'Clusterfiy' }}">
+<meta property="og:description" content="{{ $metaDescription ?? 'Clusterfiy multi-company team management.' }}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ url()->current() }}">
+<meta property="og:image" content="{{ asset('images/og-default.png') }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ $title ?? 'Clusterfiy' }}">
+<meta name="twitter:description" content="{{ $metaDescription ?? 'Clusterfiy multi-company team management.' }}">
+<meta name="twitter:image" content="{{ asset('images/og-default.png') }}">
+@stack('structured-data')
+@vite(['resources/css/app.css', 'resources/js/app.js'])
+<script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
-
-<body class="bg-base-200 text-base-content">
-    <div class="flex min-h-screen">
-        @include('partials.sidebar')
-        <div class="flex-1 flex flex-col min-h-screen">
-            @include('partials.topbar')
-            <main class="flex-1 p-4 md:p-6 overflow-x-auto">
-                @if (session('success'))
-                    <div class="alert alert-success mb-4 shadow-lg rounded-xl">
-                        <i class="fas fa-check-circle"></i>
-                        <span>{{ session('success') }}</span>
-                    </div>
-                @endif
-                @if (session('error'))
-                    <div class="alert alert-error mb-4 shadow-lg rounded-xl">
-                        <i class="fas fa-exclamation-circle"></i>
-                        <span>{{ session('error') }}</span>
-                    </div>
-                @endif
-                @if (session('info'))
-                    <div class="alert alert-info mb-4 shadow-lg rounded-xl">
-                        <i class="fas fa-info-circle"></i>
-                        <span>{{ session('info') }}</span>
-                    </div>
-                @endif
-                @yield('content')
-            </main>
-        </div>
-    </div>
-    @stack('scripts')
+<body class="bg-white text-neutral-900 antialiased" style="font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;">
+<header class="border-b border-neutral-200 bg-white">
+<nav class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3" aria-label="Main">
+<a href="{{ route('home') }}" class="flex items-center gap-2">
+<img src="{{ asset('images/logo.png') }}" alt="Clusterfiy logo" width="28" height="28">
+<span class="text-lg font-semibold">Clusterfiy</span>
+</a>
+<div class="flex items-center gap-4">
+<a href="{{ route('pricing') }}">Pricing</a>
+<a href="{{ route('terms') }}">Terms</a>
+<a href="{{ route('privacy') }}">Privacy</a>
+@auth
+<a href="{{ route('dashboard') }}">Dashboard</a>
+<a href="{{ route('notifications.index') }}">Notifications ({{ auth()->user()->unreadNotifications()->count() }})</a>
+<form method="POST" action="{{ route('logout') }}" class="inline">@csrf<button type="submit">Log out</button></form>
+@else
+<a href="{{ route('login') }}">Log in</a>
+<a href="{{ route('register') }}">Register</a>
+@endauth
+</div>
+</nav>
+</header>
+<main class="mx-auto max-w-6xl px-4 py-8">
+@if(session('success'))<div role="alert" class="border border-neutral-300 bg-white p-3">{{ session('success') }}</div>@endif
+@if(session('error'))<div role="alert" class="border border-neutral-300 bg-white p-3">{{ session('error') }}</div>@endif
+@if($errors->any())<div role="alert" class="border border-neutral-300 bg-white p-3"><ul>@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul></div>@endif
+{{ $slot ?? '' }}
+@yield('content')
+</main>
+<footer class="border-t border-neutral-200 bg-white">
+<div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-6">
+<p>Clusterfiy. Multi-company team management.</p>
+<div class="flex gap-4">
+<a href="{{ route('terms') }}">Terms of Service</a>
+<a href="{{ route('privacy') }}">Privacy Policy</a>
+<a href="{{ route('sitemap') }}">Sitemap</a>
+</div>
+</div>
+</footer>
+<script>document.addEventListener('DOMContentLoaded',function(){if(window.lucide){lucide.createIcons();}});</script>
 </body>
-
 </html>

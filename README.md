@@ -1,58 +1,50 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Clusterfiy
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+> Clusterfiy is a multi-company team-management SaaS. A user has one login, belongs to one or more companies, and switches between active company contexts. All tasks, departments, members, and reports are strictly scoped to the active company. Companies subscribe to a plan (free or team) that enforces user/company limits. Key events generate notifications (in-app + email).
 
-## About Laravel
+## 0.4 Plan limits (config/plans.php)
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+| Plan | Companies per user | Members per company | Excel exports |
+|------|--------------------|---------------------|---------------|
+| Free | 1 | 5 | No (redirect to /pricing) |
+| Team | unlimited | unlimited | Yes |
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 0.3 Role matrix
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Capability | Owner (company_admin) | Manager (manager) | Member (employee) | Super-admin (platform) |
+|---|---|---|---|---|
+| Manage company, billing, delete company | Yes | No | No | Yes (all companies) |
+| Manage members, invite, cancel invites | Yes | Yes (cannot invite owners) | No | Yes |
+| Create tasks and departments, assign anyone, view reports | Yes | Yes | No | Yes |
+| Work on assigned tasks, comment, log time, self-assign only | Yes | Yes | Yes | N/A |
+| Platform routes (all companies, switch/reset) | No | No | No | Yes |
 
-## Learning Laravel
+Super-admin is platform-level and separate from company roles. Company roles are stored in `company_user.role` (owner/manager/member) and mirrored to Spatie roles (company_admin/manager/employee).
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## 0.2 Current-state inventory (fresh clone)
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Exists: Company, Department, Task, Comment (polymorphic, stands in for TaskComment), TimeEntry (stands in for TaskTimeEntry), TaskStatusChange, ActivityLog, LoginHistory, User (+CompanyUser pivot), Project, TaskAssignee, Attachment models; SetCurrentCompany + IsSuperAdmin middleware; TaskService, DashboardService, ReportService, NotififcationService (typo, class NotificationService); TaskPolicy, CompanyPolicy, DepartmentPolicy, UserPolicy; spatie permission config; RolesAndPermissionsSeeder; Exports/TaskExports.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+Missing vs plan: routes/ and resources/views/ were absent (recreated in Phase 1); App\Models\Scopes\TenantScope referenced but file missing (added CompanyScope + TenantScope alias); company_id missing on comments, time_entries, task_status_changes, activity_logs (added via migration 2026_09_28_000001); CompanyContext singleton missing (added); company_invitations table + flow missing (added); NotificationService rename + TaskCommented/CompanyInviteSent/MemberAdded wiring + notifications view missing (added); TaskService::transition() machine + audit + assignment rules missing (added); Dashboard DTOs for manager/member missing (added); tests/ missing (added TenancyTest, RolesTest, InvitationsTest, TaskLifecycleTest).
 
-## Agentic Development
+Ticket adjustments: TaskComment = Comment model with company_id added; TaskTimeEntry = TimeEntry model with company_id added; User model unscoped (multi-company login) instead of tenant-scoped.
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Phase 1 notes
 
-```bash
-composer require laravel/boost --dev
+- 1.1 Tenant isolation: `App\Support\CompanyContext` + `App\Models\Scopes\CompanyScope` applied to Task, Department, Comment, TimeEntry, TaskStatusChange, ActivityLog. Controllers/services no longer use manual `where('company_id', ...)`. Exceptions use `withoutGlobalScope(CompanyScope::class)` (super-admin views, company switch). Route-model binding resolves within scope.
+- 1.2 Invitations: `company_invitations` table, token 40 chars, 72h expiry, single-use, role validation (manager cannot invite owners), membership uniqueness, existing-member rejection. Files: CompanyInvitation model + policy, InvitationController, SendCompanyInvite notification, StoreInvitationRequest, company-scoped routes.
+- 1.3 Notifications: renamed `NotififcationService.php` to `NotificationService.php`. Database channel for all events, mail (queued) for TaskAssigned + invites. Events: TaskAssigned, TaskCommented, CompanyInviteSent (SendCompanyInvite), MemberAddedToCompany. View: /notifications + unread count in nav. Run `php artisan queue:work` for mail.
+- 1.4 Task lifecycle: `todo/backlog to in_progress to in_review/review to done`, `done to in_progress` reopen, `cancelled` from any except done. Enforced in `TaskService::transition()` with 422 on illegal. Assignee must belong to current company; members self-assign only. Time entries: started_at required, ended_at >= started_at, own entries only.
+- 1.5 Dashboards: `DashboardService::managerDashboard()` (by status, overdue, workload, 30d trend, activity) and `memberDashboard()` (my open/overdue/due-week/comments). Controller thin, Blade + Chart.js (lazy chunk) rendering, eager-loaded.
+- 1.6 Tests: `tests/Feature/TenancyTest.php`, `RolesTest.php`, `InvitationsTest.php`, `TaskLifecycleTest.php` (RefreshDatabase). Run `composer install` then `php artisan test`.
 
-php artisan boost:install
-```
+## Site and SEO
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+- Every page sets a distinct `<title>` and meta description; layout includes canonical, Open Graph + Twitter image (`/images/og-default.png`), JSON-LD on home.
+- `lang="en"`, all images have alt text, `public/sitemap.xml` + `/sitemap.xml` route + `robots.txt`.
+- `vite.config.js`: `sourcemap: false`, chart.js split to separate chunk to avoid massive bundles. `resources/js/app.js` has no console output.
+- Design: pure white backgrounds, Lucide icons, system font stack (no Inter/Geist/Space Grotesk), square corners, no shadows, no gradients, no emojis, horizontal scroll strip instead of 3 cards in a row, skeleton loaders, TOS at /terms and Privacy at /privacy.
 
-## Contributing
+## Manual walkthrough
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Register, create company, invite second user (`/invitations`), accept via `/invitations/accept/{token}`, assign task, comment, transition (todo to in_progress to in_review to done), log time, view `/dashboard` and `/reports`.

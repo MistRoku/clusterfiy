@@ -190,7 +190,6 @@ return [
          * Package Service Providers...
          */
         Spatie\Permission\PermissionServiceProvider::class,           // RBAC
-        Maatwebsite\Excel\ExcelServiceProvider::class,                // Excel exports
         Barryvdh\DomPDF\ServiceProvider::class,                      // PDF generation
         Laravel\Sanctum\SanctumServiceProvider::class,                 // API auth WebSockets (optional)
 

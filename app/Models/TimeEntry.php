@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Scopes\TenantScope;
+use App\Models\Scopes\CompanyScope;
+use App\Support\CompanyContext;
 
 class TimeEntry extends Model
 {
     protected $fillable = [
         'task_id',
+        'company_id',
         'user_id',
         'started_at',
         'ended_at',
@@ -28,7 +30,13 @@ class TimeEntry extends Model
     }
     protected static function booted()
     {
-        static::addGlobalScope(new TenantScope);
+        static::addGlobalScope(new CompanyScope);
+
+        static::creating(function (TimeEntry $entry) {
+            if (! $entry->company_id) {
+                $entry->company_id = CompanyContext::get() ?? $entry->task?->company_id;
+            }
+        });
     }
 
     public function user()

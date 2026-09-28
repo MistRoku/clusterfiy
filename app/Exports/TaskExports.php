@@ -3,11 +3,8 @@
 namespace App\Exports;
 
 use App\Models\Task;
-use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
 
-class TasksExport implements FromCollection, WithHeadings, WithMapping
+class TaskExports
 {
     protected $dateFrom;
     protected $dateTo;
@@ -20,8 +17,8 @@ class TasksExport implements FromCollection, WithHeadings, WithMapping
 
     public function collection()
     {
-        $query = Task::with(['assignee', 'department'])
-            ->where('company_id', session('current_company_id'));
+        // Tenancy via CompanyScope global scope.
+        $query = Task::with(['assignee', 'department']);
 
         if ($this->dateFrom) {
             $query->whereDate('created_at', '>=', $this->dateFrom);

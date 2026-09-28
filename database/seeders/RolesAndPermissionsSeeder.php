@@ -36,15 +36,18 @@ class RolesAndPermissionsSeeder extends Seeder
         }
 
         $superAdmin = Role::firstOrCreate(['name' => 'super_admin']);
-        $masterAdmin = Role::firstOrCreate(['name' => 'master_admin']);
-        $companyAdmin = Role::firstOrCreate(['name' => 'company_admin']);
+        $companyAdmin = Role::firstOrCreate(['name' => 'company_admin']); // owner
         $manager = Role::firstOrCreate(['name' => 'manager']);
-        $employee = Role::firstOrCreate(['name' => 'employee']);
+        $employee = Role::firstOrCreate(['name' => 'employee']); // member
+        // Legacy aliases kept for existing data.
+        Role::firstOrCreate(['name' => 'master_admin']);
 
         $superAdmin->givePermissionTo(Permission::all());
-        $masterAdmin->givePermissionTo(['manage company settings', 'view reports']);
-        $companyAdmin->givePermissionTo(['manage departments', 'manage users', 'assign tasks', 'view reports', 'delete tasks']);
-        $manager->givePermissionTo(['manage users', 'assign tasks', 'view reports', 'create tasks', 'edit tasks']);
+        // Owner: manage company, billing, members, delete.
+        $companyAdmin->givePermissionTo(['manage companies', 'manage company settings', 'manage departments', 'manage users', 'assign tasks', 'view reports', 'delete tasks', 'create tasks', 'edit tasks', 'manage time']);
+        // Manager: create tasks/departments, assign, report. No billing, no company delete.
+        $manager->givePermissionTo(['manage departments', 'manage users', 'assign tasks', 'view reports', 'create tasks', 'edit tasks', 'manage time']);
+        // Member: work on assigned tasks, comment, log time.
         $employee->givePermissionTo(['create tasks', 'edit tasks', 'manage time']);
 
         $user = User::firstOrCreate(

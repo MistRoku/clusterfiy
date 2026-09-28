@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Scopes\CompanyScope;
+use App\Support\CompanyContext;
 
 class Comment extends Model
 {
@@ -12,10 +14,22 @@ class Comment extends Model
     protected $fillable = [
         'commentable_type',
         'commentable_id',
+        'company_id',
         'user_id',
         'body',
         'parent_id',
     ];
+
+    protected static function booted()
+    {
+        static::addGlobalScope(new CompanyScope);
+
+        static::creating(function (Comment $comment) {
+            if (! $comment->company_id) {
+                $comment->company_id = CompanyContext::get();
+            }
+        });
+    }
 
     protected $casts = [
         'created_at' => 'datetime',

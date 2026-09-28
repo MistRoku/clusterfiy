@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->alias([
             'is_super_admin' => \App\Http\Middleware\IsSuperAdmin::class,
+            'plan' => \App\Http\Middleware\EnsurePlan::class,
             'throttle.login' => \Illuminate\Routing\Middleware\ThrottleRequests::class . ':5,1',
         ]);
     })

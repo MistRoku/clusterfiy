@@ -9,6 +9,7 @@ class ActivityLog extends Model
     protected $fillable = [
         'loggable_type',
         'loggable_id',
+        'company_id',
         'user_id',
         'event',
         'old_values',
@@ -30,7 +31,13 @@ class ActivityLog extends Model
 
     protected static function booted()
     {
-        static::addGlobalScope(new \App\Models\Scopes\TenantScope);
+        static::addGlobalScope(new \App\Models\Scopes\CompanyScope);
+
+        static::creating(function (ActivityLog $log) {
+            if (! $log->company_id) {
+                $log->company_id = \App\Support\CompanyContext::get();
+            }
+        });
     }
 
     public function user()

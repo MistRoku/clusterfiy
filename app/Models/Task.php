@@ -5,7 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Scopes\TenantScope;
+use App\Models\Scopes\CompanyScope;
+use App\Support\CompanyContext;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class Task extends Model
@@ -44,12 +45,19 @@ class Task extends Model
 
     protected static function booted()
     {
-        static::addGlobalScope(new TenantScope);
+        static::addGlobalScope(new CompanyScope);
+
+        static::creating(function (Task $task) {
+            if (! $task->company_id) {
+                $task->company_id = CompanyContext::get();
+            }
+        });
 
         static::updated(function ($task) {
             if ($task->isDirty('status')) {
-                TaskStatusChange::create([
+                TaskStatusChange::withoutGlobalScope(CompanyScope::class)->create([
                     'task_id' => $task->id,
+                    'company_id' => $task->company_id,
                     'from_status' => $task->getOriginal('status'),
                     'to_status' => $task->status,
                     'changed_by' => auth()->id(),
