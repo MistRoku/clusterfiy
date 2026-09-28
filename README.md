@@ -48,3 +48,30 @@ Ticket adjustments: TaskComment = Comment model with company_id added; TaskTimeE
 ## Manual walkthrough
 
 Register, create company, invite second user (`/invitations`), accept via `/invitations/accept/{token}`, assign task, comment, transition (todo to in_progress to in_review to done), log time, view `/dashboard` and `/reports`.
+
+## Phase 2: Billing (Stripe)
+
+Two plans, enforced in code (not decoration): Free = 1 company per user, 5 members per company, no Excel exports. Team = unlimited + exports, 12 USD/month via Stripe Checkout.
+
+Setup:
+
+```bash
+composer install  # pulls stripe/stripe-php
+# .env:
+STRIPE_KEY=pk_test_...
+STRIPE_SECRET=sk_test_...
+STRIPE_TEAM_PRICE_ID=price_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+php artisan migrate
+stripe listen --forward-to localhost:8000/stripe/webhook  # local webhook testing
+```
+
+How it works:
+
+- Checkout: owner opens `/billing`, posts to `/billing/checkout` (policy `manageBilling`). `BillingGateway` creates a Stripe Checkout session (subscription mode, `metadata.company_id`); card form is Stripe-hosted so PCI surface stays with Stripe. No keys configured → `FakeGateway` serves local dev. Success/cancel pages at `/billing/success`, `/billing/cancel`.
+- Portal: `/billing/portal` creates a Stripe customer-portal session so companies manage payment method, invoices and cancellation themselves.
+- Enforcement lives in `App\Billing\PlanLimits` and is called from `InvitationController@store`, `CompanyController@store`, the `within-limits` middleware (member adds), the `plan:team` middleware (exports) and `Company::teamFeaturesActive()`. Without this layer billing would be decoration.
+- Webhooks: `POST /stripe/webhook` (CSRF-exempt, HMAC signature verified, 5-minute replay guard) handles `checkout.session.completed`, `customer.subscription.created/updated/deleted`, `invoice.payment_failed`. Handled by `SubscriptionService` with upserts keyed on Stripe IDs.
+- Idempotency: every Stripe `event_id` is stored in `webhook_events` on first sight (`firstOrCreate` under `lockForUpdate`) and marked `processed_at` after handling. Retries return 200 with `duplicate: true` and never double-apply. Same thinking as an idempotent outbox.
+- Graceful downgrade: `payment_failed` sets `past_due` + 7-day `grace_until` (team features keep working, banner warns). `subscription.deleted` flips plan to free but keeps all data; member/company adds stay blocked until the count is compliant or the company re-upgrades (`PlanLimits::isOverLimit`).
+- Money-path tests: `tests/Feature/BillingTest.php` covers checkout creation (fake + real gateway payload via `Http::fake`), portal redirect, webhook activation, duplicate delivery, bad signature, past-due grace, downgrade with data retention, per-plan member/company/export limits, and over-limit read-but-not-add. Run `php artisan test --filter=BillingTest`.

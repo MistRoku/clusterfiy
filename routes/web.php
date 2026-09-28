@@ -10,6 +10,8 @@ use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\BillingController;
+use App\Http\Controllers\StripeWebhookController;
 
 Route::get('/', function () {
     return view('pages.home', [
@@ -34,6 +36,9 @@ Route::get('/sitemap.xml', function () {
 
 Route::get('/invitations/accept/{token}', [InvitationController::class, 'accept'])->name('invitations.accept');
 
+// Stripe webhooks: no auth, no CSRF (see bootstrap/app.php). Signature verified in controller.
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle'])->name('stripe.webhook');
+
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -49,10 +54,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/tasks/{task}/reject', [TaskController::class, 'reject'])->name('tasks.reject');
 
     Route::resource('departments', DepartmentController::class)->except(['show']);
+    // Company creation limit is enforced in CompanyController@store via PlanLimits
+    // (resource routes share the URI, so per-action middleware would over-block index).
     Route::resource('companies', CompanyController::class);
 
     Route::get('/invitations', [InvitationController::class, 'index'])->name('invitations.index');
-    Route::post('/invitations', [InvitationController::class, 'store'])->name('invitations.store');
+    Route::post('/invitations', [InvitationController::class, 'store'])->name('invitations.store')->middleware('within-limits:add-member');
     Route::delete('/invitations/{invitation}', [InvitationController::class, 'destroy'])->name('invitations.destroy');
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
@@ -62,6 +69,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export')->middleware('plan:team');
     Route::get('/reports/data', [ReportController::class, 'data'])->name('reports.data');
+
+    Route::get('/billing', [BillingController::class, 'show'])->name('billing.show');
+    Route::post('/billing/checkout', [BillingController::class, 'checkout'])->name('billing.checkout');
+    Route::post('/billing/portal', [BillingController::class, 'portal'])->name('billing.portal');
+    Route::get('/billing/success', [BillingController::class, 'success'])->name('billing.success');
+    Route::get('/billing/cancel', [BillingController::class, 'cancel'])->name('billing.cancel');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
 });

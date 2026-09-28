@@ -34,7 +34,21 @@ class CompanyController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validated();
+        // Free plan: 1 company per user. Team: unlimited.
+        if (! \App\Billing\PlanLimits::canCreateCompany(Auth::user())) {
+            $message = 'The Free plan allows 1 company. Upgrade to Team for unlimited companies.';
+            if ($request->wantsJson()) {
+                return response()->json(['message' => $message], 403);
+            }
+            return redirect()->route('pricing')->with('error', $message);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255|unique:companies,name',
+            'subdomain' => 'required|string|alpha_dash|max:255|unique:companies,subdomain',
+            'domain' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+        ]);
         $validated['created_by'] = Auth::id();
         $validated['is_active'] = true;
 

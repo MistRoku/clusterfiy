@@ -11,5 +11,8 @@
 <h2>Team plan</h2>
 <p>Price: 12 USD per user per month. Includes unlimited companies, unlimited members, Excel exports, priority support.</p>
 <a href="{{ route('register') }}">Start with Team</a>
+@auth
+<form method="POST" action="{{ route('billing.checkout') }}">@csrf<input type="hidden" name="plan" value="team"><button type="submit">Upgrade current company to Team</button></form>
+@endauth
 </div>
 @endsection

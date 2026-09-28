@@ -34,13 +34,10 @@ class InvitationController extends Controller
             return back()->withErrors(['email' => 'This user is already a member of the company.'])->withInput();
         }
 
-        // Enforce plan member limits.
-        $limit = config("plans.{$company->plan}.max_members_per_company");
-        if ($limit !== null) {
-            $count = $company->memberships()->count() + User::where('company_id', $company->id)->count();
-            if ($count >= $limit) {
-                return back()->withErrors(['email' => 'Member limit for the Free plan reached (5). Upgrade to Team.'])->withInput();
-            }
+        // Enforce plan member limits (Free: 5; Team: unlimited).
+        // Over-limit companies keep data but cannot add until compliant.
+        if (! \App\Billing\PlanLimits::canAddMember($company)) {
+            return back()->withErrors(['email' => \App\Billing\PlanLimits::addMemberBlockedMessage($company)])->withInput();
         }
 
         // No duplicate pending invitation.

@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->validateCsrfTokens(except: ['stripe/webhook']);
         $middleware->appendToGroup('web', [
             \App\Http\Middleware\SetCurrentCompany::class,
             \App\Http\Middleware\LogLogin::class,
@@ -25,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'is_super_admin' => \App\Http\Middleware\IsSuperAdmin::class,
             'plan' => \App\Http\Middleware\EnsurePlan::class,
+            'within-limits' => \App\Http\Middleware\EnsureWithinLimits::class,
             'throttle.login' => \Illuminate\Routing\Middleware\ThrottleRequests::class . ':5,1',
         ]);
     })

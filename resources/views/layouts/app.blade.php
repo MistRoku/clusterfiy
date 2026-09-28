@@ -32,6 +32,7 @@
 <a href="{{ route('privacy') }}">Privacy</a>
 @auth
 <a href="{{ route('dashboard') }}">Dashboard</a>
+<a href="{{ route('billing.show') }}">Billing</a>
 <a href="{{ route('notifications.index') }}">Notifications ({{ auth()->user()->unreadNotifications()->count() }})</a>
 <form method="POST" action="{{ route('logout') }}" class="inline">@csrf<button type="submit">Log out</button></form>
 @else

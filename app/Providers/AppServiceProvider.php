@@ -20,7 +20,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(\App\Billing\BillingGateway::class, function () {
+            if (config('services.stripe.secret')) {
+                return new \App\Billing\StripeGateway();
+            }
+            return new \App\Billing\FakeGateway();
+        });
     }
 
     /**
