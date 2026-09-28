@@ -1,0 +1,2 @@
+# Clusterfiy scheduler. Install with: (crontab -u www-data -l; cat deploy/scheduler.cron) | crontab -u www-data -
+* * * * * cd /var/www/clusterfiy && php artisan schedule:run >> /dev/null 2>&1
