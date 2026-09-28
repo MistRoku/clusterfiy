@@ -37,6 +37,14 @@ return new class extends Migration
             });
         }
 
+        // Two-factor columns (carried over from the squashed June users migration)
+        if (! Schema::hasColumn('users', 'two_factor_secret')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->text('two_factor_secret')->nullable();
+                $table->text('two_factor_recovery_codes')->nullable();
+            });
+        }
+
         // Plan / subscription columns on companies
         if (! Schema::hasColumn('companies', 'plan')) {
             Schema::table('companies', function (Blueprint $table) {
@@ -77,6 +85,12 @@ return new class extends Migration
         if (Schema::hasColumn('companies', 'plan')) {
             Schema::table('companies', function (Blueprint $table) {
                 $table->dropColumn(['plan', 'trial_ends_at']);
+            });
+        }
+
+        if (Schema::hasColumn('users', 'two_factor_secret')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropColumn(['two_factor_secret', 'two_factor_recovery_codes']);
             });
         }
     }
